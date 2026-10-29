@@ -12,4 +12,9 @@ export class TelegramMessenger implements Messenger {
   async sendText(telegramChatId: number, text: string): Promise<void> {
     await this.api.sendMessage(telegramChatId, text);
   }
+
+  /** Shows "typing..." for about 5 seconds; best effort, never blocks the reply. */
+  async showTyping(telegramChatId: number): Promise<void> {
+    await this.api.sendChatAction(telegramChatId, "typing").catch(() => undefined);
+  }
 }

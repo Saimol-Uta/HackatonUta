@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ClaudeLanguageModel } from "@/adapters/llm/claude-language-model";
 import { FallbackLanguageModel } from "@/adapters/llm/fallback-language-model";
 import { GeminiLanguageModel } from "@/adapters/llm/gemini-language-model";
+import { SupabaseDashboardQueries } from "@/adapters/supabase/dashboard-queries";
 import { SupabaseCatalogRepository, SupabaseConversationRepository } from "@/adapters/supabase/supabase-repositories";
 import { TelegramMessenger } from "@/adapters/telegram/telegram-messenger";
 import type { Clock, LanguageModel } from "@/core/ports";
@@ -14,7 +15,8 @@ import { resumeAi, sendOperatorMessage, takeOver } from "@/core/sales-agent/oper
 import { parseEnv, type Env } from "./env";
 
 const TIME_ZONE = "America/Guayaquil";
-const LLM_TIMEOUT_MS = 20_000;
+// Live smoke: a trivial Gemini request alone took ~13 s, so a 20 s limit cut real replies.
+const LLM_TIMEOUT_MS = 40_000;
 
 const guayaquilClock: Clock = {
   // en-CA formats dates as YYYY-MM-DD.
@@ -55,6 +57,7 @@ function build() {
   return {
     env,
     messenger,
+    dashboard: new SupabaseDashboardQueries(db),
     handleIncomingMessage: handleIncomingMessage({ conversations, catalog, messenger, model, clock: guayaquilClock }),
     takeOver: takeOver({ conversations }),
     resumeAi: resumeAi({ conversations }),

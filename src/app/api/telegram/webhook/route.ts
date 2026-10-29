@@ -6,6 +6,11 @@ import { getContainer } from "@/server/container";
 const UNSUPPORTED_MESSAGE =
   "Por ahora solo puedo leer mensajes de texto. ¿Me cuentas por escrito en qué curso estás interesado?";
 
+// The LLM work runs in after(); classify + reply can take ~30 s on a slow provider.
+export const maxDuration = 120;
+
+const TYPING_REFRESH_MS = 4_500;
+
 export async function POST(request: Request): Promise<Response> {
   const { env, handleIncomingMessage, messenger } = getContainer();
 
@@ -18,7 +23,17 @@ export async function POST(request: Request): Promise<Response> {
   // Answer Telegram at once and do the slow LLM work afterwards, so it never retries a delivery.
   after(async () => {
     try {
-      if (update.kind === "text") await handleIncomingMessage(update.message);
+      if (update.kind === "text") {
+        const chatId = update.message.contact.telegramChatId;
+        // Keep "typing..." visible while the model works; Telegram clears it after ~5 s.
+        void messenger.showTyping(chatId);
+        const typing = setInterval(() => void messenger.showTyping(chatId), TYPING_REFRESH_MS);
+        try {
+          await handleIncomingMessage(update.message);
+        } finally {
+          clearInterval(typing);
+        }
+      }
       if (update.kind === "unsupported") await messenger.sendText(update.telegramChatId, UNSUPPORTED_MESSAGE);
     } catch (error) {
       console.error("[telegram] failed to handle update", error);

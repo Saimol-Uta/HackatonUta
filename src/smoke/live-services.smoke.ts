@@ -2,7 +2,7 @@
 // They print no secrets. The end-to-end check uses chat id -1 (never a real private chat)
 // and a recording messenger, so nothing is sent to Telegram; its rows are deleted afterwards.
 import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Api } from "grammy";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -38,6 +38,16 @@ beforeAll(async () => {
 
 const log = (label: string, value: unknown) => console.log(`  ${label}:`, value);
 
+/** Logs how long each live call takes, to find where chat latency goes. */
+async function timed<T>(label: string, run: () => Promise<T>): Promise<T> {
+  const start = performance.now();
+  try {
+    return await run();
+  } finally {
+    log(`${label} ms`, Math.round(performance.now() - start));
+  }
+}
+
 describe("configuration", () => {
   it("environment variables are valid", () => {
     log("primary", env.LLM_PRIMARY);
@@ -71,10 +81,12 @@ describe("Supabase", () => {
 });
 
 async function checkModel(model: LanguageModel) {
-  const classification = await model.classify({
-    history: HISTORY,
-    courses: courses.map((c) => ({ slug: c.slug, name: c.name, state: courseStateLabel(c, TODAY) })),
-  });
+  const classification = await timed("classify", () =>
+    model.classify({
+      history: HISTORY,
+      courses: courses.map((c) => ({ slug: c.slug, name: c.name, state: courseStateLabel(c, TODAY) })),
+    }),
+  );
   log("classification", classification);
   expect(["interested", "doubtful", "hot_lead"]).toContain(classification.intentState);
 
@@ -85,7 +97,7 @@ async function checkModel(model: LanguageModel) {
     focusCourse: courses.find((c) => c.slug === "curso21") ?? null,
     injectionSuspected: false,
   });
-  const reply = await model.reply({ system, summary: null, history: HISTORY });
+  const reply = await timed("reply", () => model.reply({ system, summary: null, history: HISTORY }));
   log("reply", reply.text);
   log("usage", reply.usage);
   expect(reply.text.length).toBeGreaterThan(0);
@@ -103,6 +115,18 @@ describe("Claude", () => {
 });
 
 describe("Gemini", () => {
+  it.skipIf(!process.env.GEMINI_API_KEY)("baseline latency of a tiny request", async () => {
+    const models = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: 30_000 } }).models;
+    const response = await timed("ping", () =>
+      models.generateContent({
+        model: env.GEMINI_MODEL,
+        contents: "Responde solo: ok",
+        config: { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } },
+      }),
+    );
+    expect(response.text?.length).toBeGreaterThan(0);
+  });
+
   it.skipIf(!process.env.GEMINI_API_KEY)("classifies and replies", async () => {
     await checkModel(
       new GeminiLanguageModel(new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: 30_000 } }).models, {
@@ -137,11 +161,11 @@ describe("end to end (no Telegram send)", () => {
       clock: { today: () => TODAY },
     });
 
-    const result = await handle({
+    const result = await timed("full flow", () => handle({
       contact: { telegramChatId: TEST_CHAT_ID, firstName: "Smoke", username: null },
       text: "Hola, quiero inscribirme en Fundamentos de Python 2. ¿Cómo pago?",
       source: "text",
-    });
+    }));
 
     log("action", result.action);
     log("sent", messenger.sent.map((m) => m.text));

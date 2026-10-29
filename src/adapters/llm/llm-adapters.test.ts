@@ -49,7 +49,7 @@ describe("ClaudeLanguageModel", () => {
 
     const result = await model.classify({ history: HISTORY, courses: [{ slug: "curso21", name: "FUNDAMENTOS DE PYTHON 2", state: "inscripciones abren el 2026-10-30" }] });
 
-    expect(result).toEqual({ intentState: "doubtful", wantsHuman: false, injectionSuspected: false, courseSlug: "curso21" });
+    expect(result).toEqual({ intentState: "doubtful", wantsHuman: false, injectionSuspected: false, courseSlug: "curso21", contact: { fullName: null, email: null, phone: null } });
     const params = create.mock.calls[0][0];
     expect(params.model).toBe("claude-haiku-5-5");
     expect(params.output_config.format.type).toBe("json_schema");

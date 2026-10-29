@@ -9,6 +9,17 @@ export type MessageSource = "text" | "voice" | "document";
 
 export type EventType = "handover" | "resume" | "enrollment" | "injection_attempt" | "hot_lead";
 
+export type EnrollmentStatus = "pending" | "confirmed" | "cancelled";
+
+/** Enrollment request collected by the bot; an operator confirms payment and the seat. */
+export interface NewEnrollment {
+  conversationId: number;
+  courseId: number;
+  fullName: string;
+  email: string;
+  phone: string;
+}
+
 export interface Conversation {
   id: number;
   telegramChatId: number;

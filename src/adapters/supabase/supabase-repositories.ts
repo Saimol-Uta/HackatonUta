@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Course, Promotion } from "@/core/catalog/course";
-import type { Conversation, ConversationPatch, EventType, Message, NewMessage } from "@/core/conversation/types";
+import type { Conversation, ConversationPatch, EventType, Message, NewEnrollment, NewMessage } from "@/core/conversation/types";
 import type { CatalogRepository, ContactProfile, ConversationRepository } from "@/core/ports";
 import {
   CONVERSATION_SELECT,
@@ -125,6 +125,26 @@ export class SupabaseConversationRepository implements ConversationRepository {
   async recordEvent(conversationId: number, type: EventType, meta: Record<string, unknown> = {}): Promise<void> {
     const result = await this.db.from("events").insert({ conversation_id: conversationId, type, meta });
     if (result.error) throw new Error(`record event: ${result.error.message}`);
+  }
+
+  async createEnrollment(enrollment: NewEnrollment): Promise<boolean> {
+    const existing = await this.db
+      .from("enrollments")
+      .select("id")
+      .eq("conversation_id", enrollment.conversationId)
+      .eq("course_id", enrollment.courseId)
+      .limit(1);
+    if (existing.error) throw new Error(`find enrollment: ${existing.error.message}`);
+    if (existing.data.length > 0) return false;
+    const result = await this.db.from("enrollments").insert({
+      conversation_id: enrollment.conversationId,
+      course_id: enrollment.courseId,
+      full_name: enrollment.fullName,
+      email: enrollment.email,
+      phone: enrollment.phone,
+    });
+    if (result.error) throw new Error(`create enrollment: ${result.error.message}`);
+    return true;
   }
 }
 

@@ -14,6 +14,7 @@ import type {
 } from "../ports";
 import { courseLifecycle } from "../catalog/course-lifecycle";
 import { matchCourseByText } from "../catalog/match-course";
+import { validEnrollmentDetails } from "../enrollment/enrollment-details";
 import { buildSystemPrompt, courseStateLabel } from "./build-system-prompt";
 
 // User-facing copy is Spanish: the bot talks to Spanish-speaking prospects.
@@ -31,6 +32,7 @@ const NEUTRAL_CLASSIFICATION: Classification = {
   wantsHuman: false,
   injectionSuspected: false,
   courseSlug: null,
+  contact: { fullName: null, email: null, phone: null },
 };
 
 const normalizeName = (name: string): string =>
@@ -210,6 +212,15 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
         categories: rules.suspected ? rules.categories : ["classifier"],
         text: incoming.text,
       });
+    }
+
+    // Enrollment: once name, email and phone are complete for a known course, store the request
+    // for an operator to confirm payment. The repository keeps it to one per conversation and course.
+    const details = validEnrollmentDetails(classification.contact);
+    const enrollmentCourseId = mentioned?.id ?? conversation.interestedCourseId;
+    if (details && enrollmentCourseId !== null) {
+      const created = await conversations.createEnrollment({ conversationId: conversation.id, courseId: enrollmentCourseId, ...details });
+      if (created) await conversations.recordEvent(conversation.id, "enrollment", { courseId: enrollmentCourseId });
     }
 
     // Re-read: an operator may have taken over while the classifier was running.

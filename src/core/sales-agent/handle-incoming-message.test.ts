@@ -164,6 +164,41 @@ describe("handleIncomingMessage", () => {
     expect(messenger.sent).toHaveLength(1);
   });
 
+  it("registers one enrollment when the prospect gave complete details for a known course", async () => {
+    model.classification = {
+      ...model.classification,
+      intentState: "hot_lead",
+      courseSlug: "curso21",
+      contact: { fullName: "Ana Pérez", email: "ana@gmail.com", phone: "0991234567" },
+    };
+
+    await receive("Soy Ana Pérez, ana@gmail.com, 0991234567");
+    await receive("¿Ya quedó?");
+
+    expect(conversations.enrollments).toEqual([
+      { conversationId: 1, courseId: 21, fullName: "Ana Pérez", email: "ana@gmail.com", phone: "0991234567" },
+    ]);
+    expect(conversations.events.filter((e) => e.type === "enrollment")).toHaveLength(1);
+  });
+
+  it("does not register an enrollment while details or the course are missing", async () => {
+    model.classification = { ...model.classification, contact: { fullName: "Ana Pérez", email: "ana@gmail.com", phone: null } };
+    await receive("Soy Ana Pérez, ana@gmail.com, quiero Python 2");
+    model.classification = { ...model.classification, contact: { fullName: "Ana Pérez", email: "ana@gmail.com", phone: "0991234567" } };
+    await receive("Mi teléfono es 0991234567");
+
+    expect(conversations.enrollments).toHaveLength(1);
+    expect(conversations.enrollments[0].courseId).toBe(21);
+
+    const other = new InMemoryConversations();
+    await handleIncomingMessage({ conversations: other, catalog, messenger, model, clock: { today: () => "2026-10-29" } })({
+      contact: { telegramChatId: 1, firstName: null, username: null },
+      text: "Soy Ana Pérez, ana@gmail.com, 0991234567",
+      source: "text",
+    });
+    expect(other.enrollments).toEqual([]);
+  });
+
   it("regenerates once when the reply quotes an unauthorized price", async () => {
     model.replies = ["Te lo dejo en $25.", "El precio para estudiantes UTA es $40."];
 

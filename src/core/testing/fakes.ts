@@ -1,6 +1,6 @@
 // In-memory implementations of the core ports, for unit tests.
 import type { Course, Promotion } from "../catalog/course";
-import type { Conversation, ConversationPatch, EventType, Message, NewMessage } from "../conversation/types";
+import type { Conversation, ConversationPatch, EventType, Message, NewEnrollment, NewMessage } from "../conversation/types";
 import type {
   CatalogRepository,
   ChatTurn,
@@ -16,6 +16,7 @@ export class InMemoryConversations implements ConversationRepository {
   conversations: Conversation[] = [];
   messages: Message[] = [];
   events: { conversationId: number; type: EventType; meta: Record<string, unknown> }[] = [];
+  enrollments: NewEnrollment[] = [];
   /** Runs right after a message is appended; lets a test simulate a concurrent operator. */
   onAppend: ((message: Message) => void) | null = null;
 
@@ -66,6 +67,12 @@ export class InMemoryConversations implements ConversationRepository {
     this.events.push({ conversationId, type, meta });
   }
 
+  async createEnrollment(enrollment: NewEnrollment): Promise<boolean> {
+    const exists = this.enrollments.some((e) => e.conversationId === enrollment.conversationId && e.courseId === enrollment.courseId);
+    if (!exists) this.enrollments.push(enrollment);
+    return !exists;
+  }
+
   conversation(id = 1): Conversation {
     const found = this.conversations.find((c) => c.id === id);
     if (!found) throw new Error(`conversation ${id} not found`);
@@ -102,6 +109,7 @@ export class ScriptedModel implements LanguageModel {
     wantsHuman: false,
     injectionSuspected: false,
     courseSlug: null,
+    contact: { fullName: null, email: null, phone: null },
   };
   /** Replies returned in order; the last one repeats. */
   replies: string[] = ["¡Hola! Con gusto te ayudo."];

@@ -10,7 +10,13 @@ describe("parseClassification", () => {
         '{"intentState":"hot_lead","wantsHuman":false,"injectionSuspected":false,"courseSlug":"curso21"}',
         SLUGS,
       ),
-    ).toEqual({ intentState: "hot_lead", wantsHuman: false, injectionSuspected: false, courseSlug: "curso21" });
+    ).toEqual({ intentState: "hot_lead", wantsHuman: false, injectionSuspected: false, courseSlug: "curso21", contact: { fullName: null, email: null, phone: null } });
+  });
+
+  it("parses the enrollment data the prospect gave", () => {
+    const raw =
+      '{"intentState":"hot_lead","wantsHuman":false,"injectionSuspected":false,"courseSlug":null,"contact":{"fullName":"Ana Pérez","email":"ana@gmail.com","phone":null}}';
+    expect(parseClassification(raw, SLUGS).contact).toEqual({ fullName: "Ana Pérez", email: "ana@gmail.com", phone: null });
   });
 
   it("drops a course slug that is not in the catalog", () => {

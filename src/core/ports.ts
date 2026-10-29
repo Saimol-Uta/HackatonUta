@@ -6,6 +6,7 @@ import type {
   EventType,
   IntentState,
   Message,
+  NewEnrollment,
   NewMessage,
 } from "./conversation/types";
 
@@ -26,6 +27,8 @@ export interface ConversationRepository {
   messagesAfter(conversationId: number, afterId: number): Promise<Message[]>;
   update(conversationId: number, patch: ConversationPatch): Promise<void>;
   recordEvent(conversationId: number, type: EventType, meta?: Record<string, unknown>): Promise<void>;
+  /** Stores the request once per conversation and course; false when it already existed. */
+  createEnrollment(enrollment: NewEnrollment): Promise<boolean>;
 }
 
 export interface CatalogRepository {
@@ -44,6 +47,8 @@ export interface Classification {
   injectionSuspected: boolean;
   /** Slug of the course the user is talking about, if any. */
   courseSlug: string | null;
+  /** Enrollment data the prospect gave anywhere in the conversation; null when not given. */
+  contact: { fullName: string | null; email: string | null; phone: string | null };
 }
 
 /** What the classifier needs to tell courses apart, including editions of the same course. */

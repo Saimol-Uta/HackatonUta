@@ -17,6 +17,11 @@ import { parseEnv, type Env } from "./env";
 const TIME_ZONE = "America/Guayaquil";
 // Live smoke: a trivial Gemini request alone took ~13 s, so a 20 s limit cut real replies.
 const LLM_TIMEOUT_MS = 40_000;
+const DB_TIMEOUT_MS = 8_000;
+
+/** A dead keep-alive socket (e.g. after a network change) must fail fast instead of hanging. */
+const fetchWithTimeout: typeof fetch = (input, init) =>
+  fetch(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(DB_TIMEOUT_MS)]) : AbortSignal.timeout(DB_TIMEOUT_MS) });
 
 const guayaquilClock: Clock = {
   // en-CA formats dates as YYYY-MM-DD.
@@ -41,6 +46,7 @@ function build() {
   const env = parseEnv(process.env);
   const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: fetchWithTimeout },
   });
   const conversations = new SupabaseConversationRepository(db);
   const catalog = new SupabaseCatalogRepository(db);

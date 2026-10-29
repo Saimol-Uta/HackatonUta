@@ -23,7 +23,7 @@ Assumption: models `claude-sonnet-5-5` (replies) and `claude-haiku-5-5` (classif
 | ID | Specs | Route | Status | Commit |
 | --- | --- | --- | --- | --- |
 | T1 | S2, S10 | inline | done | cf62f31 + T1b commit (L8) |
-| T2 | S1, S3, S4, S5, S8 | inline | todo | |
+| T2 | S1, S3, S4, S5, S8 | inline | done, verifier pending | T2 commit (L9) |
 | T3 | S1, S3, S4 | inline | todo | |
 | T4 | S6, S7 | inline | todo | |
 | T5 | S7 | inline | todo | |
@@ -50,4 +50,5 @@ Route evidence: no writer trigger; units are sequential (dashboard depends on sc
 - L6 T1 evidence: RED (module missing) → GREEN `pnpm test` 3/3; `tsc --noEmit` OK; `pnpm lint` OK; `pnpm build` OK; `pnpm seed` wrote 18 courses. `.env.example` blocked by agent permissions; env vars documented in README instead. Detail scraper not written yet (needs the site reachable). Note: CSV marks all 2026 courses `ABIERTO`, while the briefing said CCNA/Linux/Python are already running.
 - L7 (2026-10-29) User: "comienza a realizar la solucion ya se puede ingresar". Site unreachable cause was a Docker bridge (`backend_default`, 172.21.0.0/16) hijacking the route to 172.21.123.71; fixed by removing the network. Teammate's full scrape (`cursos_fisei_completo2.csv`) already holds detail pages, so no own detail scraper is needed.
 - L8 T1b evidence: RED (modules missing) → GREEN `pnpm test` 27/27; extractor run on all 18 real courses parses dates and prices; lifecycle on 2026-10-29: curso16/17/18 in_progress, curso19/20/21 upcoming (enrollment opens 2026-10-30), rest finished. Migrations 0001+0002+seed applied cleanly on a throwaway Postgres 16. `tsc --noEmit` OK, `pnpm lint` OK.
-- Next: T2 core domain + use case.
+- L9 T2 evidence: RED (5 test files, modules missing) → GREEN `pnpm test` 71/71; `tsc --noEmit` OK; `pnpm lint` OK. Added `src/core/{ports.ts, conversation/types.ts, catalog/course.ts}`, guardrails (`detect-injection`, `check-reply`), `sales-agent/{build-system-prompt, handle-incoming-message, operator-actions}`, in-memory fakes. Handover: frustrated / wants_human → mode human + needs_attention + bridge message; human mode keeps classifying but never replies; reply dropped if an operator took over mid-generation; operator messages go out through the bot and pause the AI. Guard: one regeneration, then safe fallback. Risk: item 2 (security guardrails) and item 4 (takeover race) → independent verifier.
+- Next: T3 adapters (Claude, Supabase, Telegram) + webhook route.

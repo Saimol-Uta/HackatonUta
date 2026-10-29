@@ -6,7 +6,7 @@ Branch: `feat/sales-agent-mvp` · Delivery: `exception-ok` (hackathon, 2-person 
 ## Specs
 
 - S1 Telegram agent "debe perfilar prospectos, resolver requerimientos técnicos del pénsum de cursos, argumentar ante objeciones comerciales y canalizar la inscripción con tono empático y no robótico."
-- S2 Course knowledge comes from the scraped catalog (`data/cursos_fisei.csv`): name, status (`ABIERTO`/`CERRADO`), duration, link, image. Detail fields (pensum, schedule, price, modality, certificate) are filled when the detail scrape is available; the bot must never invent them.
+- S2 Course knowledge comes from the scraped catalog (`data/cursos_fisei_completo.csv`): name, duration, link, image, description, objectives, location, organizers, enrollment/course dates, schedule, 3 price tiers, modality, certificate, details text. Real state is derived from dates (the `ABIERTO`/`CERRADO` label is stale); the bot must never invent missing fields.
 - S3 Seamless handover: "Al detectar frustración del cliente o recibir intervención directa del operador, la IA debe pausar su inferencia automáticamente. Los mensajes enviados por el administrador fluyen por Telegram bajo la misma identidad del bot."
 - S4 Thermometer: "Clasificación semántica del estado del prospecto (interesado, dudoso, frustrado o lead caliente) visible instantáneamente en las tarjetas de chat".
 - S5 Guardrails: "Defensa sólida contra intentos maliciosos de ingeniería de prompts orientados a obtener cursos gratuitos, forzar descuentos no autorizados o alterar las directrices del centro educativo."
@@ -22,7 +22,7 @@ Assumption: models `claude-sonnet-5-5` (replies) and `claude-haiku-5-5` (classif
 
 | ID | Specs | Route | Status | Commit |
 | --- | --- | --- | --- | --- |
-| T1 | S2, S10 | inline | done (detail scraper pending) | see L6 |
+| T1 | S2, S10 | inline | done | cf62f31 + T1b commit (L8) |
 | T2 | S1, S3, S4, S5, S8 | inline | todo | |
 | T3 | S1, S3, S4 | inline | todo | |
 | T4 | S6, S7 | inline | todo | |
@@ -48,4 +48,6 @@ Route evidence: no writer trigger; units are sequential (dashboard depends on sc
 - L4 RDD: off (global). Native review not applicable.
 - L5 (2026-10-29) User: "inicaliza el proyecto por ahora voy a ver porquen no puedo ingresar ala pagina , tampoco puedo yo ingresar" → scope this turn limited to T1.
 - L6 T1 evidence: RED (module missing) → GREEN `pnpm test` 3/3; `tsc --noEmit` OK; `pnpm lint` OK; `pnpm build` OK; `pnpm seed` wrote 18 courses. `.env.example` blocked by agent permissions; env vars documented in README instead. Detail scraper not written yet (needs the site reachable). Note: CSV marks all 2026 courses `ABIERTO`, while the briefing said CCNA/Linux/Python are already running.
+- L7 (2026-10-29) User: "comienza a realizar la solucion ya se puede ingresar". Site unreachable cause was a Docker bridge (`backend_default`, 172.21.0.0/16) hijacking the route to 172.21.123.71; fixed by removing the network. Teammate's full scrape (`cursos_fisei_completo2.csv`) already holds detail pages, so no own detail scraper is needed.
+- L8 T1b evidence: RED (modules missing) → GREEN `pnpm test` 27/27; extractor run on all 18 real courses parses dates and prices; lifecycle on 2026-10-29: curso16/17/18 in_progress, curso19/20/21 upcoming (enrollment opens 2026-10-30), rest finished. Migrations 0001+0002+seed applied cleanly on a throwaway Postgres 16. `tsc --noEmit` OK, `pnpm lint` OK.
 - Next: T2 core domain + use case.

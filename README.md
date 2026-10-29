@@ -35,18 +35,24 @@ Create `.env.local` with:
 ### Database
 
 1. Create a Supabase project.
-2. Run `supabase/migrations/0001_init.sql` in the SQL editor.
+2. Run the files in `supabase/migrations/` in order (`0001_init.sql`, `0002_course_details.sql`) in the SQL editor.
 3. Regenerate the course seed from the scraped CSV and run it:
 
 ```bash
-pnpm seed                        # data/cursos_fisei.csv -> supabase/seed.sql
+pnpm seed                        # data/cursos_fisei_completo.csv -> supabase/seed.sql
 ```
 
 Then run `supabase/seed.sql` in the SQL editor.
 
 ## Course data
 
-`data/cursos_fisei.csv` comes from scraping the listing page `https://ctt-talleresfisei.uta.edu.ec/course.php` (name, status, duration, link, image). Detail fields (syllabus, schedule, price, modality, certificate) live on each course page and are still pending. The site is only reachable from the UTA network.
+`data/cursos_fisei_completo.csv` comes from scraping `https://ctt-talleresfisei.uta.edu.ec/course.php` and every course detail page (`cursoN.php`): name, duration, image, description, objectives, location, organizers and a details section (enrollment and course dates, schedule, three price tiers, modality, certificate, prerequisites, modules).
+
+`src/core/catalog/extract-course-details.ts` turns the details section into structured fields; the full text is also stored in `courses.details_text` so the agent answers from it instead of inventing.
+
+The site's `ABIERTO`/`CERRADO` label is stale (2025 courses still say `ABIERTO`), so `courseLifecycle()` derives the real state from the dates: `upcoming`, `enrollment_open`, `enrollment_closed`, `in_progress`, `finished`.
+
+The site resolves to a private UTA address (`172.21.123.71`). If it is unreachable from a laptop on the campus network while a phone works, check for a Docker bridge network in `172.21.0.0/16` (`ip route get 172.21.123.71`): it hijacks the route. The server also omits its intermediate TLS certificate, so non-browser clients need to supply it or skip verification.
 
 ## Project layout
 

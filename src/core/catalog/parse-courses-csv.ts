@@ -1,3 +1,5 @@
+import { extractCourseDetails, type CourseDetails } from "./extract-course-details.ts";
+
 export type CourseStatus = "open" | "closed";
 
 export interface ScrapedCourse {
@@ -7,6 +9,13 @@ export interface ScrapedCourse {
   trainingHours: number | null;
   url: string;
   imageUrl: string | null;
+  fullTitle: string | null;
+  description: string | null;
+  objectives: string | null;
+  location: string | null;
+  organizers: string | null;
+  /** Null when the CSV only has the listing columns. */
+  details: CourseDetails | null;
 }
 
 /** Splits one CSV line, honoring double-quoted fields with embedded commas or quotes. */
@@ -49,14 +58,36 @@ function slugFromUrl(url: string): string {
   return file.replace(/\.php$/i, "");
 }
 
-/** Parses the listing CSV produced by the FISEI course scraper. */
+const HEADINGS = {
+  description: /^DESCRIPCIÓN(?: DEL CURSO)?\s*/,
+  objectives: /^OBJETIVOS(?: DEL CURSO)?\s*/,
+  location: /^LUGAR DE CELEBRACIÓN\s*/,
+};
+
+const textOrNull = (value: string | undefined, heading?: RegExp): string | null => {
+  const text = (heading ? value?.replace(heading, "") : value)?.trim();
+  return text ? text : null;
+};
+
+/**
+ * Parses the CSV produced by the FISEI course scraper. Accepts both the listing-only
+ * export (5 columns) and the full export with the detail page columns.
+ */
 export function parseCoursesCsv(csv: string): ScrapedCourse[] {
-  const [, ...rows] = csv.replace(/^﻿/, "").split(/\r?\n/);
+  const [header, ...rows] = csv.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const columns = splitCsvLine(header);
 
   return rows
     .filter((row) => row.trim() !== "")
     .map((row) => {
-      const [name, status, duration, url, imageUrl] = splitCsvLine(row);
+      const fields = splitCsvLine(row);
+      const field = (column: string): string | undefined => {
+        const index = columns.indexOf(column);
+        return index === -1 ? undefined : fields[index];
+      };
+      const [name, status, duration, url, imageUrl] = fields;
+      const detailsText = textOrNull(field("Requisitos y contenidos"));
+
       return {
         slug: slugFromUrl(url),
         name,
@@ -64,6 +95,12 @@ export function parseCoursesCsv(csv: string): ScrapedCourse[] {
         trainingHours: parseHours(duration),
         url,
         imageUrl: imageUrl || null,
+        fullTitle: textOrNull(field("Titulo completo")),
+        description: textOrNull(field("Introducción"), HEADINGS.description),
+        objectives: textOrNull(field("Objetivos"), HEADINGS.objectives),
+        location: textOrNull(field("Ubicación"), HEADINGS.location),
+        organizers: textOrNull(field("Organización")),
+        details: detailsText ? extractCourseDetails(detailsText) : null,
       };
     });
 }

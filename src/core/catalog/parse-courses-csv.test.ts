@@ -19,6 +19,12 @@ describe("parseCoursesCsv", () => {
         trainingHours: 70,
         url: "https://ctt-talleresfisei.uta.edu.ec/curso16.php",
         imageUrl: "https://ctt-talleresfisei.uta.edu.ec/img/curso16.jpg",
+        fullTitle: null,
+        description: null,
+        objectives: null,
+        location: null,
+        organizers: null,
+        details: null,
       },
       {
         slug: "curso3",
@@ -27,6 +33,12 @@ describe("parseCoursesCsv", () => {
         trainingHours: 40,
         url: "https://ctt-talleresfisei.uta.edu.ec/curso3.php",
         imageUrl: "https://ctt-talleresfisei.uta.edu.ec/img/javascript1.jpg",
+        fullTitle: null,
+        description: null,
+        objectives: null,
+        location: null,
+        organizers: null,
+        details: null,
       },
     ]);
   });
@@ -48,5 +60,35 @@ describe("parseCoursesCsv", () => {
     const [course] = parseCoursesCsv(csv);
     expect(course.trainingHours).toBeNull();
     expect(course.imageUrl).toBeNull();
+  });
+
+  it("reads the detail columns of the full scrape and strips their section headings", () => {
+    const csv = [
+      "\uFEFFNombre,Estado,Duración,Enlace,Imagen,Titulo completo,Introducción,Objetivos,Ubicación,Organización,Requisitos y contenidos",
+      [
+        "FUNDAMENTOS DE PYTHON 2,ABIERTO,40 HORAS,https://x.ec/curso21.php,https://x.ec/img/curso21.jpg",
+        "Fundamentos de Python 2",
+        '"DESCRIPCIÓN DEL CURSO Continúa con módulos, paquetes y excepciones."',
+        "OBJETIVOS Aplicar programación orientada a objetos.",
+        '"LUGAR DE CELEBRACIÓN Virtual, plataforma Cisco NetAcad."',
+        "COMITÉ ORGANIZADOR Ing. Carlos Vargas",
+        '"REQUISITOS Y DETALLES MATERIALES Y EQUIPOS CONTENIDOS Fechas de inscripciones: Del 30 de octubre de 2026 al 15 de noviembre de 2026 Precio para los asistentes: Estudiantes UTA: $40,00 Graduados UTA: $50,00 Público en general: $60,00"',
+      ].join(","),
+    ].join("\n");
+
+    const [course] = parseCoursesCsv(csv);
+    expect(course).toMatchObject({
+      slug: "curso21",
+      fullTitle: "Fundamentos de Python 2",
+      description: "Continúa con módulos, paquetes y excepciones.",
+      objectives: "Aplicar programación orientada a objetos.",
+      location: "Virtual, plataforma Cisco NetAcad.",
+      organizers: "COMITÉ ORGANIZADOR Ing. Carlos Vargas",
+      details: {
+        enrollmentStart: "2026-10-30",
+        enrollmentEnd: "2026-11-15",
+        prices: { utaStudent: 40, utaStaff: 50, public: 60 },
+      },
+    });
   });
 });

@@ -189,21 +189,29 @@ export function Chats() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const inFlight = useRef(false);
   const refresh = useCallback(async () => {
-    const [list, chat] = await Promise.all([
-      getJson<ConversationCard[]>("/api/operator/conversations"),
-      selectedId ? getJson<ConversationDetail>(`/api/operator/conversations/${selectedId}`) : Promise.resolve(null),
-    ]);
-    if (list === "unauthorized" || chat === "unauthorized") {
-      router.replace("/login");
-      return;
+    // Skip a tick while the previous refresh is still running, so slow responses never pile up.
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const [list, chat] = await Promise.all([
+        getJson<ConversationCard[]>("/api/operator/conversations"),
+        selectedId ? getJson<ConversationDetail>(`/api/operator/conversations/${selectedId}`) : Promise.resolve(null),
+      ]);
+      if (list === "unauthorized" || chat === "unauthorized") {
+        router.replace("/login");
+        return;
+      }
+      if (list) {
+        setCards(list);
+        setLoaded(true);
+      }
+      if (chat) setDetail(chat);
+      setNow(Date.now());
+    } finally {
+      inFlight.current = false;
     }
-    if (list) {
-      setCards(list);
-      setLoaded(true);
-    }
-    if (chat) setDetail(chat);
-    setNow(Date.now());
   }, [router, selectedId]);
 
   useEffect(() => {

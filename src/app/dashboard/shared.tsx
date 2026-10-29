@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { IntentState } from "@/core/conversation/types";
 
 export const POLL_MS = 3000;
 export const TIME_ZONE = "America/Guayaquil";
+const REQUEST_TIMEOUT_MS = 10_000;
 
 // Muted tones: a small dot carries the color, the label stays neutral.
 export const INTENT: Record<IntentState, { label: string; dot: string; bar: string }> = {
@@ -16,7 +17,8 @@ export const INTENT: Record<IntentState, { label: string; dot: string; bar: stri
 };
 
 export async function getJson<T>(url: string): Promise<T | "unauthorized" | null> {
-  const response = await fetch(url, { cache: "no-store" }).catch(() => null);
+  // A stalled network must not leave requests hanging for minutes.
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }).catch(() => null);
   if (response?.status === 401) return "unauthorized";
   return response?.ok ? ((await response.json()) as T) : null;
 }
@@ -25,11 +27,18 @@ export async function getJson<T>(url: string): Promise<T | "unauthorized" | null
 export function usePolled<T>(url: string | null): [T | null, () => Promise<void>] {
   const router = useRouter();
   const [data, setData] = useState<T | null>(null);
+  const inFlight = useRef(false);
   const load = useCallback(async () => {
-    if (!url) return;
-    const result = await getJson<T>(url);
-    if (result === "unauthorized") router.replace("/login");
-    else if (result) setData(result);
+    // Skip a tick while the previous request is still running, so slow responses never pile up.
+    if (!url || inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const result = await getJson<T>(url);
+      if (result === "unauthorized") router.replace("/login");
+      else if (result) setData(result);
+    } finally {
+      inFlight.current = false;
+    }
   }, [router, url]);
 
   useEffect(() => {

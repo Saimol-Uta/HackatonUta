@@ -11,7 +11,7 @@ import { GeminiLanguageModel } from "@/adapters/llm/gemini-language-model";
 import { SupabaseCatalogRepository, SupabaseConversationRepository } from "@/adapters/supabase/supabase-repositories";
 import type { Course } from "@/core/catalog/course";
 import type { ChatTurn, LanguageModel } from "@/core/ports";
-import { buildSystemPrompt } from "@/core/sales-agent/build-system-prompt";
+import { buildSystemPrompt, courseStateLabel } from "@/core/sales-agent/build-system-prompt";
 import { handleIncomingMessage } from "@/core/sales-agent/handle-incoming-message";
 import { RecordingMessenger } from "@/core/testing/fakes";
 import { parseEnv, type Env } from "@/server/env";
@@ -71,7 +71,10 @@ describe("Supabase", () => {
 });
 
 async function checkModel(model: LanguageModel) {
-  const classification = await model.classify({ history: HISTORY, courseSlugs: courses.map((c) => c.slug) });
+  const classification = await model.classify({
+    history: HISTORY,
+    courses: courses.map((c) => ({ slug: c.slug, name: c.name, state: courseStateLabel(c, TODAY) })),
+  });
   log("classification", classification);
   expect(["interested", "doubtful", "hot_lead"]).toContain(classification.intentState);
 

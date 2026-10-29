@@ -1,5 +1,5 @@
 import { ThinkingLevel, type GoogleGenAI } from "@google/genai";
-import type { ChatTurn, Classification, LanguageModel, TokenUsage } from "@/core/ports";
+import type { ChatTurn, Classification, CourseOption, LanguageModel, TokenUsage } from "@/core/ports";
 import {
   CLASSIFICATION_JSON_SCHEMA,
   CLASSIFIER_SYSTEM,
@@ -34,10 +34,10 @@ export class GeminiLanguageModel implements LanguageModel {
     private readonly options: { model: string },
   ) {}
 
-  async classify(input: { history: ChatTurn[]; courseSlugs: string[] }): Promise<Classification> {
+  async classify(input: { history: ChatTurn[]; courses: CourseOption[] }): Promise<Classification> {
     const response = await this.models.generateContent({
       model: this.options.model,
-      contents: [{ role: "user", parts: [{ text: classifierInput(input.history, input.courseSlugs) }] }],
+      contents: [{ role: "user", parts: [{ text: classifierInput(input.history, input.courses) }] }],
       config: {
         systemInstruction: CLASSIFIER_SYSTEM,
         responseMimeType: "application/json",
@@ -45,7 +45,7 @@ export class GeminiLanguageModel implements LanguageModel {
         thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
     });
-    return parseClassification(textOf(response), input.courseSlugs);
+    return parseClassification(textOf(response), input.courses.map((c) => c.slug));
   }
 
   async reply(input: { system: string; summary: string | null; history: ChatTurn[] }): Promise<{

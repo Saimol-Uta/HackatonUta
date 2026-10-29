@@ -7,6 +7,7 @@ import type {
   Classification,
   ContactProfile,
   ConversationRepository,
+  CourseOption,
   LanguageModel,
   Messenger,
 } from "../ports";
@@ -105,10 +106,12 @@ export class ScriptedModel implements LanguageModel {
   /** Replies returned in order; the last one repeats. */
   replies: string[] = ["¡Hola! Con gusto te ayudo."];
   summary = "Resumen.";
+  classifyCalls: { history: ChatTurn[]; courses: CourseOption[] }[] = [];
   replyCalls: { system: string; summary: string | null; history: ChatTurn[] }[] = [];
   summarizeCalls: { previousSummary: string | null; history: ChatTurn[] }[] = [];
 
-  async classify(): Promise<Classification> {
+  async classify(input: { history: ChatTurn[]; courses: CourseOption[] }): Promise<Classification> {
+    this.classifyCalls.push(input);
     return this.classification;
   }
 

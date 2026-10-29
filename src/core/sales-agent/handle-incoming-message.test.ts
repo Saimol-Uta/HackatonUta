@@ -202,9 +202,9 @@ describe("handleIncomingMessage", () => {
   it("does not send the handover message if an operator took over while classifying", async () => {
     model.classification = { ...model.classification, intentState: "frustrated" };
     const classify = model.classify.bind(model);
-    model.classify = async () => {
+    model.classify = async (input) => {
       await conversations.update(1, { mode: "human", needsAttention: false });
-      return classify();
+      return classify(input);
     };
 
     const result = await receive("Esto no sirve!!!");
@@ -254,5 +254,21 @@ describe("handleIncomingMessage", () => {
     };
 
     for (const text of ["uno", "dos", "tres", "cuatro", "cinco"]) expect((await receive(text)).action).toBe("replied");
+  });
+
+  it("prefers the active edition when the classifier picks a finished course with the same name", async () => {
+    catalog.courses = [
+      makeCourse({ id: 2, slug: "curso2", name: "Fundamentos de Python 2", enrollmentStart: "2025-03-15", enrollmentEnd: "2025-04-07", startDate: "2025-04-05", endDate: "2025-05-04" }),
+      makeCourse(),
+    ];
+    model.classification = { ...model.classification, courseSlug: "curso2" };
+
+    await receive("¿Cuánto cuesta Python 2?");
+
+    expect(conversations.conversation().interestedCourseId).toBe(21);
+    expect(model.classifyCalls[0].courses).toEqual([
+      { slug: "curso2", name: "Fundamentos de Python 2", state: "finalizado" },
+      { slug: "curso21", name: "FUNDAMENTOS DE PYTHON 2", state: "inscripciones abren el 2026-10-30" },
+    ]);
   });
 });

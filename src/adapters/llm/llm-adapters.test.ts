@@ -47,7 +47,7 @@ describe("ClaudeLanguageModel", () => {
     const { client, create } = claudeClient(claudeText(CLASSIFICATION_JSON));
     const model = new ClaudeLanguageModel(client, models);
 
-    const result = await model.classify({ history: HISTORY, courseSlugs: ["curso21"] });
+    const result = await model.classify({ history: HISTORY, courses: [{ slug: "curso21", name: "FUNDAMENTOS DE PYTHON 2", state: "inscripciones abren el 2026-10-30" }] });
 
     expect(result).toEqual({ intentState: "doubtful", wantsHuman: false, injectionSuspected: false, courseSlug: "curso21" });
     const params = create.mock.calls[0][0];
@@ -92,7 +92,7 @@ describe("GeminiLanguageModel", () => {
 
     const result = await new GeminiLanguageModel(client, { model: "gemini-3.5-flash-lite" }).classify({
       history: HISTORY,
-      courseSlugs: ["curso21"],
+      courses: [{ slug: "curso21", name: "FUNDAMENTOS DE PYTHON 2", state: "inscripciones abren el 2026-10-30" }],
     });
 
     expect(result.intentState).toBe("doubtful");

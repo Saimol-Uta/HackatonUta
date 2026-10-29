@@ -12,7 +12,8 @@ import type {
   LanguageModel,
   Messenger,
 } from "../ports";
-import { buildSystemPrompt } from "./build-system-prompt";
+import { courseLifecycle } from "../catalog/course-lifecycle";
+import { buildSystemPrompt, courseStateLabel } from "./build-system-prompt";
 
 // User-facing copy is Spanish: the bot talks to Spanish-speaking prospects.
 export const HANDOVER_MESSAGE =
@@ -30,6 +31,19 @@ const NEUTRAL_CLASSIFICATION: Classification = {
   injectionSuspected: false,
   courseSlug: null,
 };
+
+const normalizeName = (name: string): string =>
+  name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+
+/** Courses run in editions with the same name; a finished one should not win over the active one. */
+function resolveCourse(courses: Course[], slug: string | null, today: string): Course | null {
+  const picked = courses.find((c) => c.slug === slug) ?? null;
+  if (!picked || courseLifecycle(picked, today) !== "finished") return picked;
+  const active = courses.find(
+    (c) => c.id !== picked.id && normalizeName(c.name) === normalizeName(picked.name) && courseLifecycle(c, today) !== "finished",
+  );
+  return active ?? picked;
+}
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -140,10 +154,13 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
     // Thermometer: classify every message, even while a human owns the chat.
     // A classifier outage must not silence the bot: fall back to a neutral reading.
     const classification = await model
-      .classify({ history, courseSlugs: courses.map((c) => c.slug) })
+      .classify({
+        history,
+        courses: courses.map((c) => ({ slug: c.slug, name: c.name, state: courseStateLabel(c, today) })),
+      })
       .catch(() => NEUTRAL_CLASSIFICATION);
     const rules = detectInjection(incoming.text);
-    const mentioned = courses.find((c) => c.slug === classification.courseSlug) ?? null;
+    const mentioned = resolveCourse(courses, classification.courseSlug, today);
 
     await conversations.update(conversation.id, {
       intentState: classification.intentState,

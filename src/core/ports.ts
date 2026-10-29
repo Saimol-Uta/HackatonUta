@@ -46,6 +46,14 @@ export interface Classification {
   courseSlug: string | null;
 }
 
+/** What the classifier needs to tell courses apart, including editions of the same course. */
+export interface CourseOption {
+  slug: string;
+  name: string;
+  /** Human-readable state, e.g. "finalizado" or "inscripciones abiertas hasta 2026-11-15". */
+  state: string;
+}
+
 export interface ChatTurn {
   role: "user" | "assistant";
   content: string;
@@ -57,7 +65,7 @@ export interface TokenUsage {
 }
 
 export interface LanguageModel {
-  classify(input: { history: ChatTurn[]; courseSlugs: string[] }): Promise<Classification>;
+  classify(input: { history: ChatTurn[]; courses: CourseOption[] }): Promise<Classification>;
   reply(input: { system: string; summary: string | null; history: ChatTurn[] }): Promise<{
     text: string;
     usage: TokenUsage;

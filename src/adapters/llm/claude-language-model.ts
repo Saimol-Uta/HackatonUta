@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { ChatTurn, Classification, LanguageModel, TokenUsage } from "@/core/ports";
+import type { ChatTurn, Classification, CourseOption, LanguageModel, TokenUsage } from "@/core/ports";
 import {
   CLASSIFICATION_JSON_SCHEMA,
   CLASSIFIER_SYSTEM,
@@ -38,15 +38,15 @@ export class ClaudeLanguageModel implements LanguageModel {
     private readonly models: ClaudeModels,
   ) {}
 
-  async classify(input: { history: ChatTurn[]; courseSlugs: string[] }): Promise<Classification> {
+  async classify(input: { history: ChatTurn[]; courses: CourseOption[] }): Promise<Classification> {
     const message = await this.client.messages.create({
       model: this.models.classifierModel,
       max_tokens: 2048,
       system: CLASSIFIER_SYSTEM,
-      messages: [{ role: "user", content: classifierInput(input.history, input.courseSlugs) }],
+      messages: [{ role: "user", content: classifierInput(input.history, input.courses) }],
       output_config: { effort: "low", format: { type: "json_schema", schema: CLASSIFICATION_JSON_SCHEMA } },
     });
-    return parseClassification(textOf(message), input.courseSlugs);
+    return parseClassification(textOf(message), input.courses.map((c) => c.slug));
   }
 
   async reply(input: { system: string; summary: string | null; history: ChatTurn[] }): Promise<{

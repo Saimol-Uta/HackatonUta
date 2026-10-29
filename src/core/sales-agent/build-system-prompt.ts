@@ -13,6 +13,10 @@ export interface SystemPromptInput {
 const DETAILS_LIMIT = 3000;
 
 // Spanish on purpose: these labels are quoted back to Spanish-speaking prospects.
+export function courseStateLabel(course: Course, today: string): string {
+  return stateLabel(course, courseLifecycle(course, today));
+}
+
 function stateLabel(course: Course, state: CourseLifecycle): string {
   switch (state) {
     case "upcoming":

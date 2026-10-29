@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conversationTurns, parseClassification, renderTranscript } from "./shared";
+import { classifierInput, conversationTurns, parseClassification, renderTranscript } from "./shared";
 
 const SLUGS = ["curso21", "curso16"];
 
@@ -70,5 +70,17 @@ describe("renderTranscript", () => {
         { role: "assistant", content: "¡Hola!" },
       ]),
     ).toBe("PROSPECT: <user_message>hola</user_message>\nADVISOR: ¡Hola!");
+  });
+});
+
+describe("classifierInput", () => {
+  it("lists each course with its name and real state so editions are not confused", () => {
+    const input = classifierInput([{ role: "user", content: "<user_message>Python 2</user_message>" }], [
+      { slug: "curso2", name: "Fundamentos de Python 2", state: "finalizado" },
+      { slug: "curso21", name: "FUNDAMENTOS DE PYTHON 2", state: "inscripciones abren el 2026-10-30" },
+    ]);
+
+    expect(input).toContain("- curso2: Fundamentos de Python 2 (finalizado)");
+    expect(input).toContain("- curso21: FUNDAMENTOS DE PYTHON 2 (inscripciones abren el 2026-10-30)");
   });
 });

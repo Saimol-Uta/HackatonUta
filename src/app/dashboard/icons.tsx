@@ -79,3 +79,9 @@ export const BookIcon = (p: IconProps) => (
     <path d="M4 19a2 2 0 0 1 2-2h14" />
   </Icon>
 );
+export const ClipboardIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="5" y="4" width="14" height="17" rx="2" />
+    <path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6" />
+  </Icon>
+);

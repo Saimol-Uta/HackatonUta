@@ -1,6 +1,6 @@
 // Read models for the operator dashboard. Server-side only (service role client).
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ConversationMode, EventType, IntentState, Message } from "@/core/conversation/types";
+import type { ConversationMode, EnrollmentStatus, EventType, IntentState, Message } from "@/core/conversation/types";
 import { toMessage, type MessageRow } from "./rows";
 
 export interface ConversationCard {
@@ -61,6 +61,33 @@ function fail(what: string, error: { message: string }): never {
   throw new Error(`${what}: ${error.message}`);
 }
 
+export interface EnrollmentRow {
+  id: number;
+  conversationId: number;
+  contactName: string;
+  courseName: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  status: EnrollmentStatus;
+  createdAt: string;
+}
+
+interface EnrollmentDbRow {
+  id: number;
+  conversation_id: number;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  status: EnrollmentStatus;
+  created_at: string;
+  courses: { name: string };
+  conversations: { contacts: { first_name: string | null; username: string | null } };
+}
+
+const ENROLLMENT_SELECT =
+  "id, conversation_id, full_name, email, phone, status, created_at, courses!inner(name), conversations!inner(contacts!inner(first_name, username))";
+
 export interface CourseDemand {
   conversations: number;
   hotLeads: number;
@@ -94,6 +121,34 @@ export class SupabaseDashboardQueries {
       .returns<MessageRow[]>();
     if (messages.error) fail("list messages", messages.error);
     return { ...toCard(card.data), messages: (messages.data ?? []).map(toMessage).reverse() };
+  }
+
+  async listEnrollments(limit = 200): Promise<EnrollmentRow[]> {
+    const { data, error } = await this.db
+      .from("enrollments")
+      .select(ENROLLMENT_SELECT)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+      .returns<EnrollmentDbRow[]>();
+    if (error) fail("list enrollments", error);
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      conversationId: row.conversation_id,
+      contactName: row.conversations.contacts.first_name ?? row.conversations.contacts.username ?? row.full_name,
+      courseName: row.courses.name,
+      fullName: row.full_name,
+      email: row.email,
+      phone: row.phone,
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+  }
+
+  /** False when the enrollment does not exist. */
+  async setEnrollmentStatus(id: number, status: EnrollmentStatus): Promise<boolean> {
+    const { data, error } = await this.db.from("enrollments").update({ status }).eq("id", id).select("id");
+    if (error) fail("update enrollment", error);
+    return (data ?? []).length > 0;
   }
 
   /** Conversations and hot leads per interested course id. */

@@ -6,7 +6,7 @@ import type { DashboardStats } from "@/adapters/supabase/dashboard-queries";
 import type { CourseLifecycle } from "@/core/catalog/course-lifecycle";
 import type { IntentState } from "@/core/conversation/types";
 import type { CourseInsight } from "@/server/course-insights";
-import { AlertIcon, BookIcon, ChatIcon, FlameIcon, ShieldIcon, SwapIcon, UserIcon } from "./icons";
+import { AlertIcon, BookIcon, ChatIcon, ClipboardIcon, FlameIcon, ShieldIcon, SwapIcon, UserIcon } from "./icons";
 import { INTENT, PageHeader, Shimmer, usePolled } from "./shared";
 
 const LIFECYCLE: Record<CourseLifecycle, { label: string; className: string; sellable: boolean }> = {
@@ -248,6 +248,15 @@ export function Metrics() {
             />
             <Kpi index={3} label="Con operador" value={stats?.inHumanMode} hint="IA en pausa" icon={<UserIcon className="size-5" />} />
           </div>
+          <Link href="/dashboard/enrollments" className="mt-4 block">
+            <Kpi
+              index={4}
+              label="Inscripciones registradas por el bot"
+              value={stats?.events.enrollment}
+              hint="Ver y confirmar solicitudes →"
+              icon={<ClipboardIcon className="size-5" />}
+            />
+          </Link>
         </section>
 
         <section>

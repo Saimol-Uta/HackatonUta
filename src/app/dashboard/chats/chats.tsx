@@ -220,6 +220,12 @@ export function Chats() {
     return () => clearInterval(timer);
   }, [refresh]);
 
+  // Deep link from other views: /dashboard/chats?c=<conversation id>.
+  useEffect(() => {
+    const linked = Number(new URLSearchParams(window.location.search).get("c"));
+    if (Number.isInteger(linked) && linked > 0) setSelectedId(linked);
+  }, []);
+
   const messageCount = detail?.messages.length ?? 0;
   useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messageCount, selectedId]);
 

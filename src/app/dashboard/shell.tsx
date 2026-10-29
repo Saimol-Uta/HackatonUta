@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChartIcon, ChatIcon, LogoutIcon } from "./icons";
+import { ChartIcon, ChatIcon, ClipboardIcon, LogoutIcon } from "./icons";
 
 const NAV = [
   { href: "/dashboard", label: "Métricas", icon: ChartIcon },
   { href: "/dashboard/chats", label: "Conversaciones", icon: ChatIcon },
+  { href: "/dashboard/enrollments", label: "Inscripciones", icon: ClipboardIcon },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {

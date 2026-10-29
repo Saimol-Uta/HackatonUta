@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeCourse } from "../testing/fakes";
-import { buildSystemPrompt } from "./build-system-prompt";
+import { ENROLLMENT_FORM_URL, buildSystemPrompt } from "./build-system-prompt";
 
 const python2 = makeCourse();
 const ccna = makeCourse({
@@ -25,6 +25,14 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("INTRODUCCIÓN A LAS REDES – PREPARACIÓN CCNA [curso16] — en curso hasta 2026-12-05");
     expect(prompt).toContain("Estudiantes UTA $40 · Graduados/docentes/administrativos UTA $50 · Público general $60");
     expect(prompt).toContain("Today is 2026-10-29");
+  });
+
+  it("gives the verified enrollment form and contacts, and admits what is not published", () => {
+    const prompt = buildSystemPrompt(base);
+
+    expect(prompt).toContain(ENROLLMENT_FORM_URL);
+    expect(prompt).toContain("talleresfisei@uta.edu.ec");
+    expect(prompt).toContain("Not published: payment methods");
   });
 
   it("includes the detail text of the focus course only", () => {

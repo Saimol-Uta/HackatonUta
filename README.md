@@ -21,6 +21,8 @@ pnpm dev         # http://localhost:3000
 
 See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md): the `.env.local` template, where to get each key, and the Claude → Gemini fallback.
 
+To run it locally and walk through the demo script, see [docs/MANUAL.md](docs/MANUAL.md) (Spanish).
+
 ### Telegram webhook
 
 Once the app is reachable over HTTPS:

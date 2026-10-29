@@ -10,6 +10,7 @@
     "test": "vitest run",
     "seed": "node scripts/build-course-seed.ts",
     "telegram:webhook": "node --env-file=.env.local scripts/set-telegram-webhook.ts",
+    "telegram:poll": "node --env-file=.env.local scripts/telegram-dev-poll.ts",
     "smoke": "vitest run --config vitest.smoke.config.ts --reporter=verbose"
   },
   "dependencies": {

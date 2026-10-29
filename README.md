@@ -7,7 +7,7 @@ Telegram sales agent powered by an LLM plus a real-time operator dashboard with 
 
 ## Stack
 
-Next.js 15 (dashboard + webhook API) · Supabase (Postgres, Realtime, Auth) · grammY (Telegram) · Claude via `@anthropic-ai/sdk` · Vitest.
+Next.js 15 (dashboard + webhook API) · Supabase (Postgres, Realtime, Auth) · grammY (Telegram) · Claude via `@anthropic-ai/sdk`, with Gemini (`@google/genai`) as backup provider · Vitest.
 
 ## Getting started
 
@@ -19,18 +19,15 @@ pnpm dev         # http://localhost:3000
 
 ### Environment variables
 
-Create `.env.local` with:
+See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md): the `.env.local` template, where to get each key, and the Claude → Gemini fallback.
 
-| Variable | Description |
-| --- | --- |
-| `ANTHROPIC_API_KEY` | Claude API key |
-| `AGENT_MODEL` | Reply model, default `claude-sonnet-5-5` |
-| `CLASSIFIER_MODEL` | Classifier/summary model, default `claude-haiku-5-5` |
-| `TELEGRAM_BOT_TOKEN` | Token from @BotFather |
-| `TELEGRAM_WEBHOOK_SECRET` | Random string, validated on every webhook call |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (browser) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key, server only — never expose it |
+### Telegram webhook
+
+Once the app is reachable over HTTPS:
+
+```bash
+pnpm telegram:webhook https://<public-host>   # registers /api/telegram/webhook with the secret
+```
 
 ### Database
 

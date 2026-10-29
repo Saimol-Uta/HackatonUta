@@ -58,6 +58,8 @@ function build() {
     env,
     messenger,
     dashboard: new SupabaseDashboardQueries(db),
+    catalog,
+    clock: guayaquilClock,
     handleIncomingMessage: handleIncomingMessage({ conversations, catalog, messenger, model, clock: guayaquilClock }),
     takeOver: takeOver({ conversations }),
     resumeAi: resumeAi({ conversations }),

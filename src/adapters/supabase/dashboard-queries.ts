@@ -61,6 +61,11 @@ function fail(what: string, error: { message: string }): never {
   throw new Error(`${what}: ${error.message}`);
 }
 
+export interface CourseDemand {
+  conversations: number;
+  hotLeads: number;
+}
+
 export class SupabaseDashboardQueries {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -89,6 +94,24 @@ export class SupabaseDashboardQueries {
       .returns<MessageRow[]>();
     if (messages.error) fail("list messages", messages.error);
     return { ...toCard(card.data), messages: (messages.data ?? []).map(toMessage).reverse() };
+  }
+
+  /** Conversations and hot leads per interested course id. */
+  async demandByCourse(): Promise<Map<number, CourseDemand>> {
+    const { data, error } = await this.db
+      .from("conversations")
+      .select("interested_course_id, intent_state")
+      .not("interested_course_id", "is", null)
+      .returns<{ interested_course_id: number; intent_state: IntentState }[]>();
+    if (error) fail("course demand", error);
+    const demand = new Map<number, CourseDemand>();
+    for (const row of data ?? []) {
+      const entry = demand.get(row.interested_course_id) ?? { conversations: 0, hotLeads: 0 };
+      entry.conversations += 1;
+      if (row.intent_state === "hot_lead") entry.hotLeads += 1;
+      demand.set(row.interested_course_id, entry);
+    }
+    return demand;
   }
 
   async stats(): Promise<DashboardStats> {

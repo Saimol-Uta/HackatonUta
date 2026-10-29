@@ -31,16 +31,30 @@ pnpm telegram:poll       # terminal 2: trae los mensajes de Telegram al servidor
 
 ## 3. Uso del panel
 
+El menú lateral tiene dos vistas.
+
+**Métricas** (`/dashboard`)
+
+| Elemento | Qué muestra |
+|---|---|
+| Conversaciones | Total de chats, leads calientes (con % del total), chats que requieren atención y chats en manos de un operador. |
+| Operación y catálogo | Cursos en catálogo, cursos a la venta (próximos o con inscripción abierta), derivaciones a humano e intentos de manipulación bloqueados. |
+| Termómetro de interés | Distribución de los chats entre Interesado, Dudoso, Lead caliente y Frustrado. |
+| Cursos más consultados | Los 5 cursos con más conversaciones. |
+| Catálogo de cursos | Cada curso con su estado (calculado con las fechas), modalidad, fechas de clase, precio público, consultas y leads. Filtros: Todos, A la venta, Con demanda. |
+
+**Conversaciones** (`/dashboard/chats`)
+
 | Elemento | Qué hace |
 |---|---|
-| Barra de indicadores | Conversaciones, leads calientes, chats que requieren atención, chats en manos de un humano, derivaciones e intentos de manipulación. |
-| Bandeja (izquierda) | Chats ordenados por último mensaje. Etiqueta de termómetro: Interesado, Dudoso, Frustrado, Lead caliente. Borde rojo = requiere atención. 🤖 IA o 👤 Humano. |
-| Chat (derecha) | Historial completo (Prospecto, IA, Operador), resumen automático y curso de interés. |
-| **Tomar el control** | Pausa la IA en ese chat. El bot deja de responder automáticamente. |
-| **Enviar** | El operador responde por el mismo bot. Enviar también pausa la IA. |
+| Buscador y filtros | Buscar por contacto o curso; filtrar por Atención, Leads o Humano. |
+| Bandeja | Chats ordenados por último mensaje, con termómetro, curso de interés y punto rojo si requiere atención. |
+| Chat | Historial (Prospecto, Asistente IA, Operador) con separadores por día y resumen automático. |
+| **Tomar el control** | Pausa la IA en ese chat. |
+| **Enviar** (Enter) | Responde por el mismo bot y pausa la IA. Shift+Enter agrega una línea. |
 | **Devolver a la IA** | La IA vuelve a responder y se limpia la alerta. |
 
-El panel se actualiza solo cada 3 segundos.
+Ambas vistas se actualizan solas cada 3 segundos.
 
 ## 4. Guion de pruebas (demo)
 

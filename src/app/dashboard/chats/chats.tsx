@@ -2,32 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ConversationCard, ConversationDetail, DashboardStats } from "@/adapters/supabase/dashboard-queries";
-import type { IntentState, Message, MessageRole } from "@/core/conversation/types";
-import {
-  AlertIcon,
-  BackIcon,
-  BotIcon,
-  ChatIcon,
-  FlameIcon,
-  LogoutIcon,
-  SearchIcon,
-  SendIcon,
-  ShieldIcon,
-  SwapIcon,
-  UserIcon,
-} from "./icons";
-
-const POLL_MS = 3000;
-const TIME_ZONE = "America/Guayaquil";
-
-// Muted tones: a small dot carries the color, the label stays neutral.
-const INTENT: Record<IntentState, { label: string; dot: string }> = {
-  interested: { label: "Interesado", dot: "bg-sky-500" },
-  doubtful: { label: "Dudoso", dot: "bg-amber-500" },
-  frustrated: { label: "Frustrado", dot: "bg-rose-500" },
-  hot_lead: { label: "Lead caliente", dot: "bg-emerald-500" },
-};
+import type { ConversationCard, ConversationDetail } from "@/adapters/supabase/dashboard-queries";
+import type { Message, MessageRole } from "@/core/conversation/types";
+import { AlertIcon, BackIcon, BotIcon, ChatIcon, SearchIcon, SendIcon, UserIcon } from "../icons";
+import { IntentBadge, POLL_MS, Shimmer, TIME_ZONE, getJson } from "../shared";
 
 const ROLE: Record<MessageRole, { label: string; bubble: string; align: string; meta: string }> = {
   user: { label: "Prospecto", bubble: "bg-white ring-1 ring-slate-200 text-slate-800 rounded-bl-md", align: "self-start", meta: "text-slate-400" },
@@ -63,62 +41,10 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("") || "?";
 
-async function getJson<T>(url: string): Promise<T | "unauthorized" | null> {
-  const response = await fetch(url, { cache: "no-store" }).catch(() => null);
-  if (response?.status === 401) return "unauthorized";
-  return response?.ok ? ((await response.json()) as T) : null;
-}
-
-function IntentBadge({ state }: { state: IntentState }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 rounded-full px-2 py-0.5 bg-slate-100">
-      <span className={`size-1.5 rounded-full ${INTENT[state].dot}`} />
-      {INTENT[state].label}
-    </span>
-  );
-}
-
 function Avatar({ name, size = "size-9" }: { name: string; size?: string }) {
   return (
     <div className={`${size} shrink-0 rounded-full bg-gradient-to-br from-navy-100 to-navy-200 text-navy-900 grid place-items-center text-xs font-semibold`}>
       {initials(name)}
-    </div>
-  );
-}
-
-function StatsBar({ stats }: { stats: DashboardStats | null }) {
-  const tiles: { label: string; value?: number; icon: React.ReactNode; alert?: boolean }[] = [
-    { label: "Conversaciones", value: stats?.conversations, icon: <ChatIcon /> },
-    { label: "Leads calientes", value: stats?.byIntent.hot_lead, icon: <FlameIcon /> },
-    { label: "Requieren atención", value: stats?.needsAttention, icon: <AlertIcon />, alert: true },
-    { label: "Con operador", value: stats?.inHumanMode, icon: <UserIcon /> },
-    { label: "Derivaciones", value: stats?.events.handover, icon: <SwapIcon /> },
-    { label: "Manipulación bloqueada", value: stats?.events.injection_attempt, icon: <ShieldIcon /> },
-  ];
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 px-6 py-4">
-      {tiles.map((tile, index) => {
-        const hot = tile.alert && !!tile.value;
-        return (
-          <div
-            key={tile.label}
-            style={{ animationDelay: `${index * 40}ms` }}
-            className={`animate-fade-up rounded-xl bg-white ring-1 px-4 py-3 transition-shadow hover:shadow-md ${
-              hot ? "ring-rose-200" : "ring-slate-200/70"
-            }`}
-          >
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-medium uppercase tracking-wider">{tile.label}</span>
-              <span className={hot ? "text-rose-500" : "text-navy-700/60"}>{tile.icon}</span>
-            </div>
-            {tile.value === undefined ? (
-              <div className="mt-2 h-7 w-10 rounded bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 bg-[length:200%_100%] animate-shimmer" />
-            ) : (
-              <div className={`mt-1 text-2xl font-semibold tabular-nums ${hot ? "text-rose-600" : "text-navy-900"}`}>{tile.value}</div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -185,8 +111,8 @@ function ConversationList({
             <div key={i} className="flex gap-3 px-4 py-4">
               <div className="size-9 rounded-full bg-slate-100" />
               <div className="flex-1 space-y-2">
-                <div className="h-3 w-2/3 rounded bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 bg-[length:200%_100%] animate-shimmer" />
-                <div className="h-3 w-1/2 rounded bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 bg-[length:200%_100%] animate-shimmer" />
+                <Shimmer className="h-3 w-2/3" />
+                <Shimmer className="h-3 w-1/2" />
               </div>
             </div>
           ))}
@@ -250,11 +176,10 @@ function withDayDividers(messages: Message[]): ({ kind: "day"; label: string } |
   return items;
 }
 
-export function Dashboard() {
+export function Chats() {
   const router = useRouter();
   const [cards, setCards] = useState<ConversationCard[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
@@ -265,12 +190,11 @@ export function Dashboard() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const refresh = useCallback(async () => {
-    const [list, summary, chat] = await Promise.all([
+    const [list, chat] = await Promise.all([
       getJson<ConversationCard[]>("/api/operator/conversations"),
-      getJson<DashboardStats>("/api/operator/stats"),
       selectedId ? getJson<ConversationDetail>(`/api/operator/conversations/${selectedId}`) : Promise.resolve(null),
     ]);
-    if (list === "unauthorized" || summary === "unauthorized" || chat === "unauthorized") {
+    if (list === "unauthorized" || chat === "unauthorized") {
       router.replace("/login");
       return;
     }
@@ -278,7 +202,6 @@ export function Dashboard() {
       setCards(list);
       setLoaded(true);
     }
-    if (summary) setStats(summary);
     if (chat) setDetail(chat);
     setNow(Date.now());
   }, [router, selectedId]);
@@ -331,11 +254,6 @@ export function Dashboard() {
     }
   }
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-  }
-
   function select(id: number) {
     setSelectedId(id);
     setDetail(null);
@@ -345,34 +263,11 @@ export function Dashboard() {
   const selected = detail && detail.id === selectedId ? detail : null;
 
   return (
-    <div className="h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 h-14 bg-navy-900 text-white shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="size-8 rounded-lg bg-white/10 ring-1 ring-white/15 grid place-items-center text-[11px] font-bold tracking-wide">CTT</div>
-          <div className="leading-tight">
-            <h1 className="text-sm font-semibold">Panel de operadores</h1>
-            <p className="text-[11px] text-navy-200/70">CTT FISEI · Universidad Técnica de Ambato</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:inline-flex items-center gap-2 rounded-full bg-white/5 ring-1 ring-white/10 px-3 py-1 text-[11px] text-navy-100/80">
-            <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
-            </span>
-            En vivo
-          </span>
-          <button
-            onClick={logout}
-            className="inline-flex items-center gap-1.5 text-xs text-navy-100/80 hover:text-white hover:bg-white/10 rounded-lg px-3 py-1.5 transition-colors"
-          >
-            <LogoutIcon className="size-3.5" />
-            Salir
-          </button>
-        </div>
-      </header>
-
-      <StatsBar stats={stats} />
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="px-6 pt-6 pb-4">
+        <h1 className="text-xl font-semibold text-navy-900">Conversaciones</h1>
+        <p className="text-sm text-slate-500">Chats de Telegram atendidos por la IA y por los operadores.</p>
+      </div>
 
       <div className="flex-1 flex min-h-0 mx-6 mb-6 rounded-2xl bg-white ring-1 ring-slate-200/70 shadow-sm overflow-hidden">
         <aside className={`w-full md:w-80 shrink-0 border-r border-slate-100 flex-col ${selectedId ? "hidden md:flex" : "flex"}`}>

@@ -68,3 +68,14 @@ export const BackIcon = (p: IconProps) => (
     <path d="m15 18-6-6 6-6" />
   </Icon>
 );
+export const ChartIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </Icon>
+);
+export const BookIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2V5Z" />
+    <path d="M4 19a2 2 0 0 1 2-2h14" />
+  </Icon>
+);

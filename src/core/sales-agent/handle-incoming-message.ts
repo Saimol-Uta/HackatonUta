@@ -5,6 +5,7 @@ import { detectInjection } from "../guardrails/detect-injection";
 import type {
   CatalogRepository,
   ChatTurn,
+  Classification,
   Clock,
   ContactProfile,
   ConversationRepository,
@@ -19,6 +20,18 @@ export const HANDOVER_MESSAGE =
 
 export const SAFE_FALLBACK_MESSAGE =
   "Para no darte un dato incorrecto, prefiero confirmarte solo los valores oficiales publicados de cada curso. ¿De qué curso te gustaría conocer los precios?";
+
+export const TECHNICAL_ISSUE_MESSAGE =
+  "Disculpa, tuve un inconveniente técnico. Ya avisé a una persona de nuestro equipo para que te responda por aquí en breve.";
+
+const NEUTRAL_CLASSIFICATION: Classification = {
+  intentState: "interested",
+  wantsHuman: false,
+  injectionSuspected: false,
+  courseSlug: null,
+};
+
+const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 export interface HandleIncomingMessageDeps {
   conversations: ConversationRepository;
@@ -39,7 +52,8 @@ export interface IncomingMessage {
 }
 
 export interface HandleResult {
-  action: "replied" | "paused" | "handover";
+  /** "failed": no model could answer; the prospect got an apology and the chat is flagged. */
+  action: "replied" | "paused" | "handover" | "failed";
   conversationId: number;
 }
 
@@ -81,6 +95,19 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
   }
 
   /** Folds messages that left the history window into the rolling summary, in batches. */
+  async function apologize(conversation: Conversation, error: unknown): Promise<HandleResult> {
+    await conversations.update(conversation.id, { needsAttention: true });
+    await messenger.sendText(conversation.telegramChatId, TECHNICAL_ISSUE_MESSAGE);
+    await conversations.appendMessage({
+      conversationId: conversation.id,
+      role: "ai",
+      content: TECHNICAL_ISSUE_MESSAGE,
+      source: "text",
+      meta: { error: errorMessage(error) },
+    });
+    return { action: "failed", conversationId: conversation.id };
+  }
+
   async function refreshSummary(conversationId: number): Promise<void> {
     const latest = await conversations.get(conversationId);
     if (!latest) return;
@@ -111,7 +138,10 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
     const history = toTurns(recent);
 
     // Thermometer: classify every message, even while a human owns the chat.
-    const classification = await model.classify({ history, courseSlugs: courses.map((c) => c.slug) });
+    // A classifier outage must not silence the bot: fall back to a neutral reading.
+    const classification = await model
+      .classify({ history, courseSlugs: courses.map((c) => c.slug) })
+      .catch(() => NEUTRAL_CLASSIFICATION);
     const rules = detectInjection(incoming.text);
     const mentioned = courses.find((c) => c.slug === classification.courseSlug) ?? null;
 
@@ -141,12 +171,18 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
     const policy = replyPolicy(courses, promotions.map((p) => p.discountPct));
     const summary = conversation.summary;
 
-    let draft = await model.reply({ system, summary, history });
-    let check = checkReply(draft.text, policy);
-    if (!check.ok) {
-      const retrySystem = `${system}\n\n# PREVIOUS DRAFT REJECTED\nIt broke the pricing rules (${check.violations.join(", ")}). Answer again using only catalog prices and active promotions.`;
-      draft = await model.reply({ system: retrySystem, summary, history });
+    let draft: Awaited<ReturnType<LanguageModel["reply"]>>;
+    let check: ReturnType<typeof checkReply>;
+    try {
+      draft = await model.reply({ system, summary, history });
       check = checkReply(draft.text, policy);
+      if (!check.ok) {
+        const retrySystem = `${system}\n\n# PREVIOUS DRAFT REJECTED\nIt broke the pricing rules (${check.violations.join(", ")}). Answer again using only catalog prices and active promotions.`;
+        draft = await model.reply({ system: retrySystem, summary, history });
+        check = checkReply(draft.text, policy);
+      }
+    } catch (error) {
+      return apologize(conversation, error);
     }
     const text = check.ok ? draft.text : SAFE_FALLBACK_MESSAGE;
 
@@ -166,7 +202,8 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
         ...(check.ok ? {} : { guard: { violations: check.violations, fallback: true } }),
       },
     });
-    await refreshSummary(conversation.id);
+    // The summary is a nice-to-have: a failure retries on the next message (the watermark did not move).
+    await refreshSummary(conversation.id).catch(() => undefined);
 
     return { action: "replied", conversationId: conversation.id };
   };

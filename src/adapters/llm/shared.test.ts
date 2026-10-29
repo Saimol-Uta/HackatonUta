@@ -44,6 +44,19 @@ describe("conversationTurns", () => {
     ]);
   });
 
+  it("drops trailing assistant turns: a concurrent reply must not become an assistant prefill", () => {
+    expect(
+      conversationTurns([
+        { role: "user", content: "u" },
+        { role: "user", content: "v" },
+        { role: "assistant", content: "respuesta a u" },
+      ]),
+    ).toEqual([
+      { role: "user", content: "u" },
+      { role: "user", content: "v" },
+    ]);
+  });
+
   it("throws when nothing is left to answer", () => {
     expect(() => conversationTurns([{ role: "assistant", content: "a" }])).toThrow("no user turn");
   });

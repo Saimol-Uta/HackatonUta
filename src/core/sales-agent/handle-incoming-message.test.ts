@@ -6,7 +6,12 @@ import {
   ScriptedModel,
   makeCourse,
 } from "../testing/fakes";
-import { HANDOVER_MESSAGE, SAFE_FALLBACK_MESSAGE, handleIncomingMessage } from "./handle-incoming-message";
+import {
+  HANDOVER_MESSAGE,
+  SAFE_FALLBACK_MESSAGE,
+  TECHNICAL_ISSUE_MESSAGE,
+  handleIncomingMessage,
+} from "./handle-incoming-message";
 
 const CHAT = 555;
 
@@ -217,5 +222,37 @@ describe("handleIncomingMessage", () => {
     await receive("Gracias");
 
     expect(model.replyCalls.at(-1)!.history.map((t) => t.role)).toEqual(["user", "assistant", "assistant", "user"]);
+  });
+
+  it("keeps answering with a neutral classification when the classifier fails", async () => {
+    model.classify = async () => {
+      throw new Error("classifier down");
+    };
+
+    const result = await receive("Hola");
+
+    expect(result.action).toBe("replied");
+    expect(conversations.conversation().intentState).toBe("interested");
+  });
+
+  it("apologizes and flags the chat for an operator when no model can reply", async () => {
+    model.reply = async () => {
+      throw new Error("all providers down");
+    };
+
+    const result = await receive("¿Cuánto cuesta?");
+
+    expect(result.action).toBe("failed");
+    expect(messenger.sent).toEqual([{ telegramChatId: CHAT, text: TECHNICAL_ISSUE_MESSAGE }]);
+    expect(conversations.conversation().needsAttention).toBe(true);
+    expect(conversations.messages.at(-1)).toMatchObject({ role: "ai", content: TECHNICAL_ISSUE_MESSAGE, meta: { error: "all providers down" } });
+  });
+
+  it("does not fail the reply when the summary refresh fails", async () => {
+    model.summarize = async () => {
+      throw new Error("summary down");
+    };
+
+    for (const text of ["uno", "dos", "tres", "cuatro", "cinco"]) expect((await receive(text)).action).toBe("replied");
   });
 });

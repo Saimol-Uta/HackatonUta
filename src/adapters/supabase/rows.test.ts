@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toConversation, toConversationRow, toCourse } from "./rows";
+import { toContactRow, toConversation, toConversationRow, toCourse } from "./rows";
 
 describe("Supabase row mappers", () => {
   it("maps a course row, building the price tiers only when all three exist", () => {
@@ -62,5 +62,10 @@ describe("Supabase row mappers", () => {
       summary: "x",
       summarized_until_message_id: 9,
     });
+  });
+
+  it("never overwrites a known contact name with null when Telegram omits it", () => {
+    expect(toContactRow({ telegramChatId: 5, firstName: null, username: null })).toEqual({ telegram_chat_id: 5 });
+    expect(toContactRow({ telegramChatId: 5, firstName: "Ana", username: null })).toEqual({ telegram_chat_id: 5, first_name: "Ana" });
   });
 });

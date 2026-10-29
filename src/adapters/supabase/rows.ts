@@ -1,5 +1,6 @@
 // Mapping between Postgres rows (snake_case, numerics as strings) and core types.
 import type { Course, Promotion } from "@/core/catalog/course";
+import type { ContactProfile } from "@/core/ports";
 import type { Conversation, ConversationPatch, Message } from "@/core/conversation/types";
 
 type Numeric = number | string | null;
@@ -69,6 +70,15 @@ export interface PromotionRow {
 
 export function toPromotion(row: PromotionRow): Promotion {
   return { code: row.code, courseId: row.course_id, discountPct: Number(row.discount_pct), validUntil: row.valid_until };
+}
+
+/** Upsert payload that keeps stored names when Telegram omits them. */
+export function toContactRow(contact: ContactProfile): Record<string, unknown> {
+  return {
+    telegram_chat_id: contact.telegramChatId,
+    ...(contact.firstName ? { first_name: contact.firstName } : {}),
+    ...(contact.username ? { username: contact.username } : {}),
+  };
 }
 
 export interface ConversationRow {

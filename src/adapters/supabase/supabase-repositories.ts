@@ -4,6 +4,7 @@ import type { Conversation, ConversationPatch, EventType, Message, NewMessage } 
 import type { CatalogRepository, ContactProfile, ConversationRepository } from "@/core/ports";
 import {
   CONVERSATION_SELECT,
+  toContactRow,
   toConversation,
   toConversationRow,
   toCourse,
@@ -29,10 +30,7 @@ export class SupabaseConversationRepository implements ConversationRepository {
     const { id: contactId } = must(
       await this.db
         .from("contacts")
-        .upsert(
-          { telegram_chat_id: contact.telegramChatId, first_name: contact.firstName, username: contact.username },
-          { onConflict: "telegram_chat_id" },
-        )
+        .upsert(toContactRow(contact), { onConflict: "telegram_chat_id" })
         .select("id")
         .single<{ id: number }>(),
       "upsert contact",

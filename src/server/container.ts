@@ -14,6 +14,7 @@ import { resumeAi, sendOperatorMessage, takeOver } from "@/core/sales-agent/oper
 import { parseEnv, type Env } from "./env";
 
 const TIME_ZONE = "America/Guayaquil";
+const LLM_TIMEOUT_MS = 20_000;
 
 const guayaquilClock: Clock = {
   // en-CA formats dates as YYYY-MM-DD.
@@ -22,12 +23,16 @@ const guayaquilClock: Clock = {
 
 function buildModel(env: Env, provider: "claude" | "gemini"): LanguageModel {
   if (provider === "claude") {
-    return new ClaudeLanguageModel(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }), {
+    // Fail fast so the backup provider still answers within the function's time limit.
+    return new ClaudeLanguageModel(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: LLM_TIMEOUT_MS, maxRetries: 1 }), {
       replyModel: env.AGENT_MODEL,
       classifierModel: env.CLASSIFIER_MODEL,
     });
   }
-  return new GeminiLanguageModel(new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }).models, { model: env.GEMINI_MODEL });
+  return new GeminiLanguageModel(
+    new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: LLM_TIMEOUT_MS } }).models,
+    { model: env.GEMINI_MODEL },
+  );
 }
 
 function build() {

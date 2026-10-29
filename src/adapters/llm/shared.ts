@@ -56,11 +56,15 @@ export function summarizerInput(previousSummary: string | null, history: ChatTur
   return `Previous summary:\n${previousSummary ?? "(none)"}\n\nNew messages:\n${renderTranscript(history)}`;
 }
 
-/** Providers reject conversations that open with the assistant; the window may cut there. */
+/**
+ * Providers need a conversation that opens and ends with the user: the window may cut before a user
+ * turn, and a reply stored concurrently may land after the newest one (it would act as a prefill).
+ */
 export function conversationTurns(history: ChatTurn[]): ChatTurn[] {
   const firstUser = history.findIndex((turn) => turn.role === "user");
   if (firstUser === -1) throw new Error("no user turn to answer");
-  return history.slice(firstUser);
+  const lastUser = history.findLastIndex((turn) => turn.role === "user");
+  return history.slice(firstUser, lastUser + 1);
 }
 
 export function summarySystemBlock(summary: string | null): string | null {

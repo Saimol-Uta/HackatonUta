@@ -80,13 +80,16 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
     return { action: "handover", conversationId: conversation.id };
   }
 
-  async function refreshSummary(conversation: Conversation): Promise<void> {
-    const count = await conversations.countMessages(conversation.id);
-    if (count % summaryEvery !== 0) return;
-    const latest = await conversations.get(conversation.id);
-    const history = toTurns(await conversations.recentMessages(conversation.id, summaryEvery));
-    const summary = await model.summarize({ previousSummary: latest?.summary ?? null, history });
-    await conversations.update(conversation.id, { summary });
+  /** Folds messages that left the history window into the rolling summary, in batches. */
+  async function refreshSummary(conversationId: number): Promise<void> {
+    const latest = await conversations.get(conversationId);
+    if (!latest) return;
+    const pending = await conversations.messagesAfter(conversationId, latest.summarizedUntilMessageId ?? 0);
+    const outOfWindow = pending.slice(0, Math.max(0, pending.length - historyWindow));
+    if (outOfWindow.length < summaryEvery) return;
+
+    const summary = await model.summarize({ previousSummary: latest.summary, history: toTurns(outOfWindow) });
+    await conversations.update(conversationId, { summary, summarizedUntilMessageId: outOfWindow.at(-1)!.id });
   }
 
   return async function handle(incoming: IncomingMessage): Promise<HandleResult> {
@@ -127,7 +130,9 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
       });
     }
 
-    if (conversation.mode === "human") return { action: "paused", conversationId: conversation.id };
+    // Re-read: an operator may have taken over while the classifier was running.
+    const fresh = (await conversations.get(conversation.id)) ?? conversation;
+    if (fresh.mode === "human") return { action: "paused", conversationId: conversation.id };
     if (classification.intentState === "frustrated") return handOver(conversation, "frustrated");
     if (classification.wantsHuman) return handOver(conversation, "wants_human");
 
@@ -161,7 +166,7 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
         ...(check.ok ? {} : { guard: { violations: check.violations, fallback: true } }),
       },
     });
-    await refreshSummary(conversation);
+    await refreshSummary(conversation.id);
 
     return { action: "replied", conversationId: conversation.id };
   };

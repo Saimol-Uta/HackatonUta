@@ -29,6 +29,7 @@ export class InMemoryConversations implements ConversationRepository {
       needsAttention: false,
       interestedCourseId: null,
       summary: null,
+      summarizedUntilMessageId: null,
     };
     this.conversations.push(created);
     return { ...created };
@@ -50,8 +51,8 @@ export class InMemoryConversations implements ConversationRepository {
     return this.messages.filter((m) => m.conversationId === conversationId).slice(-limit);
   }
 
-  async countMessages(conversationId: number): Promise<number> {
-    return this.messages.filter((m) => m.conversationId === conversationId).length;
+  async messagesAfter(conversationId: number, afterId: number): Promise<Message[]> {
+    return this.messages.filter((m) => m.conversationId === conversationId && m.id > afterId);
   }
 
   async update(conversationId: number, patch: ConversationPatch): Promise<void> {

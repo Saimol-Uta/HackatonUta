@@ -22,7 +22,8 @@ export interface ConversationRepository {
   appendMessage(message: NewMessage): Promise<Message>;
   /** Most recent messages, oldest first. */
   recentMessages(conversationId: number, limit: number): Promise<Message[]>;
-  countMessages(conversationId: number): Promise<number>;
+  /** Messages with an id greater than `afterId`, oldest first. */
+  messagesAfter(conversationId: number, afterId: number): Promise<Message[]>;
   update(conversationId: number, patch: ConversationPatch): Promise<void>;
   recordEvent(conversationId: number, type: EventType, meta?: Record<string, unknown>): Promise<void>;
 }

@@ -163,11 +163,51 @@ describe("handleIncomingMessage", () => {
     expect(call.history.at(-1)!.content).toBe("<user_message>cuatro</user_message>");
   });
 
-  it("refreshes the rolling summary every N messages", async () => {
-    for (const text of ["uno", "dos", "tres"]) await receive(text);
+  it("summarizes messages once they leave the history window, and remembers how far it got", async () => {
+    for (const text of ["uno", "dos", "tres", "cuatro"]) await receive(text);
+    expect(model.summarizeCalls).toHaveLength(0);
+
+    await receive("cinco");
 
     expect(model.summarizeCalls).toHaveLength(1);
-    expect(conversations.conversation().summary).toBe("Resumen.");
+    expect(model.summarizeCalls[0].history.map((t) => t.content)).toEqual([
+      "<user_message>uno</user_message>",
+      "¡Hola! Con gusto te ayudo.",
+      "<user_message>dos</user_message>",
+      "¡Hola! Con gusto te ayudo.",
+      "<user_message>tres</user_message>",
+      "¡Hola! Con gusto te ayudo.",
+    ]);
+    expect(conversations.conversation()).toMatchObject({ summary: "Resumen.", summarizedUntilMessageId: 6 });
+  });
+
+  it("keeps summarizing after an odd number of messages, e.g. an operator message", async () => {
+    await receive("uno");
+    await conversations.appendMessage({ conversationId: 1, role: "operator", content: "Hola, soy Carla", source: "text", meta: {} });
+
+    for (let i = 0; i < 10; i++) await receive(`mensaje ${i}`);
+
+    expect(model.summarizeCalls.length).toBeGreaterThanOrEqual(2);
+    const summarized = model.summarizeCalls.flatMap((call) => call.history.map((t) => t.content));
+    expect(summarized).toContain("Hola, soy Carla");
+    const userTurns = summarized.filter((content) => content.startsWith("<user_message>"));
+    expect(new Set(userTurns).size).toBe(userTurns.length);
+  });
+
+  it("does not send the handover message if an operator took over while classifying", async () => {
+    model.classification = { ...model.classification, intentState: "frustrated" };
+    const classify = model.classify.bind(model);
+    model.classify = async () => {
+      await conversations.update(1, { mode: "human", needsAttention: false });
+      return classify();
+    };
+
+    const result = await receive("Esto no sirve!!!");
+
+    expect(result.action).toBe("paused");
+    expect(messenger.sent).toEqual([]);
+    expect(conversations.conversation()).toMatchObject({ mode: "human", needsAttention: false });
+    expect(conversations.events.map((e) => e.type)).not.toContain("handover");
   });
 
   it("maps operator messages to assistant turns so the model keeps the bot's voice", async () => {

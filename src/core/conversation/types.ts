@@ -17,6 +17,8 @@ export interface Conversation {
   needsAttention: boolean;
   interestedCourseId: number | null;
   summary: string | null;
+  /** Last message folded into `summary`; newer messages are not summarized yet. */
+  summarizedUntilMessageId: number | null;
 }
 
 export interface Message {
@@ -32,5 +34,5 @@ export interface Message {
 export type NewMessage = Omit<Message, "id" | "createdAt">;
 
 export type ConversationPatch = Partial<
-  Pick<Conversation, "mode" | "intentState" | "needsAttention" | "interestedCourseId" | "summary">
+  Pick<Conversation, "mode" | "intentState" | "needsAttention" | "interestedCourseId" | "summary" | "summarizedUntilMessageId">
 >;

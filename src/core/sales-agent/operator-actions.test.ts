@@ -36,7 +36,7 @@ describe("operator actions", () => {
   });
 
   it("rejects empty operator messages", async () => {
-    await expect(sendOperatorMessage({ conversations, messenger })(1, "   ")).rejects.toThrow("empty");
+    await expect(sendOperatorMessage({ conversations, messenger })(1, "   ")).rejects.toMatchObject({ code: "empty_message" });
     expect(messenger.sent).toEqual([]);
   });
 
@@ -50,6 +50,6 @@ describe("operator actions", () => {
   });
 
   it("fails on an unknown conversation", async () => {
-    await expect(resumeAi({ conversations })(99)).rejects.toThrow("not found");
+    await expect(resumeAi({ conversations })(99)).rejects.toMatchObject({ code: "not_found" });
   });
 });

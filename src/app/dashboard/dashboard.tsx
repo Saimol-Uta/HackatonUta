@@ -101,7 +101,14 @@ export function Dashboard() {
       body: JSON.stringify(body ?? {}),
     }).catch(() => null);
     setBusy(false);
-    if (!response?.ok) setNotice("No se pudo completar la acción. Intenta de nuevo.");
+    if (!response?.ok) {
+      const body = (await response?.json().catch(() => null)) as { error?: string; detail?: string } | null;
+      setNotice(
+        body?.error === "not_found"
+          ? "La conversación ya no existe."
+          : `No se pudo completar la acción${body?.detail ? `: ${body.detail}` : ". Intenta de nuevo."}`,
+      );
+    }
     await refresh();
     return response?.ok ?? false;
   }

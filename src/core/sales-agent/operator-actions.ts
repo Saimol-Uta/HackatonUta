@@ -1,9 +1,17 @@
 import type { Conversation } from "../conversation/types";
 import type { ConversationRepository, Messenger } from "../ports";
 
+/** Expected operator mistakes, kept apart from infrastructure failures (Telegram, database). */
+export class OperatorActionError extends Error {
+  constructor(readonly code: "not_found" | "empty_message", message: string) {
+    super(message);
+    this.name = "OperatorActionError";
+  }
+}
+
 async function load(conversations: ConversationRepository, conversationId: number): Promise<Conversation> {
   const conversation = await conversations.get(conversationId);
-  if (!conversation) throw new Error(`conversation ${conversationId} not found`);
+  if (!conversation) throw new OperatorActionError("not_found", `conversation ${conversationId} not found`);
   return conversation;
 }
 
@@ -30,7 +38,7 @@ export function sendOperatorMessage({
 }) {
   return async (conversationId: number, rawText: string): Promise<void> => {
     const text = rawText.trim();
-    if (!text) throw new Error("operator message is empty");
+    if (!text) throw new OperatorActionError("empty_message", "operator message is empty");
     const conversation = await load(conversations, conversationId);
 
     // Direct operator intervention pauses the AI before anything is sent.

@@ -20,6 +20,7 @@ TELEGRAM_WEBHOOK_SECRET=      # 32-256 chars of A-Z a-z 0-9 _ -
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=    # server only, bypasses RLS
+DASHBOARD_PASSWORD=           # operator dashboard password (16+ chars); empty disables sign-in
 ```
 
 The app validates these on the first request and lists every missing or invalid variable.
@@ -35,6 +36,7 @@ The app validates these on the first request and lists every missing or invalid 
 | `NEXT_PUBLIC_SUPABASE_URL` | [supabase.com](https://supabase.com) → *New project* → **Project Settings → API** → *Project URL*. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same page → *anon / public* key. Safe for the browser; Row Level Security protects data. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same page → *service_role* key. Secret: server only, never in client code or git. |
+| `DASHBOARD_PASSWORD` | Choose one, e.g. `openssl rand -base64 24`. Operators type it at `/login`. |
 
 ## Provider fallback
 

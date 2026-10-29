@@ -84,6 +84,7 @@ describe("GeminiLanguageModel", () => {
     expect(params.config.systemInstruction).toBe("SYSTEM\n\n# CONVERSATION SUMMARY (older messages)\nAna.");
     expect(params.contents.map((c: { role: string }) => c.role)).toEqual(["user", "model", "user"]);
     expect(params.config).not.toHaveProperty("temperature");
+    expect(params.config.thinkingConfig).toEqual({ thinkingLevel: "LOW" });
   });
 
   it("classifies with a JSON response schema", async () => {
@@ -95,7 +96,10 @@ describe("GeminiLanguageModel", () => {
     });
 
     expect(result.intentState).toBe("doubtful");
-    expect(generateContent.mock.calls[0][0].config).toMatchObject({ responseMimeType: "application/json" });
+    expect(generateContent.mock.calls[0][0].config).toMatchObject({
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingLevel: "MINIMAL" },
+    });
   });
 
   it("throws on an empty answer (e.g. blocked by safety filters)", async () => {

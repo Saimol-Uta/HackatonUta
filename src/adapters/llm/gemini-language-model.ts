@@ -1,4 +1,4 @@
-import type { GoogleGenAI } from "@google/genai";
+import { ThinkingLevel, type GoogleGenAI } from "@google/genai";
 import type { ChatTurn, Classification, LanguageModel, TokenUsage } from "@/core/ports";
 import {
   CLASSIFICATION_JSON_SCHEMA,
@@ -25,7 +25,8 @@ function textOf(response: GenerateResponse): string {
 /**
  * LanguageModel backed by Gemini (e.g. gemini-3.5-flash-lite). Used as a backup provider so the bot
  * keeps answering if Claude is down, rate-limited or refuses. Sampling parameters are not sent:
- * Gemini 3.5 models ignore them.
+ * Gemini 3.5 models ignore them. Thinking stays low: chat turns are short and latency-sensitive
+ * (the default level took over 20 s per call in the live smoke test).
  */
 export class GeminiLanguageModel implements LanguageModel {
   constructor(
@@ -41,6 +42,7 @@ export class GeminiLanguageModel implements LanguageModel {
         systemInstruction: CLASSIFIER_SYSTEM,
         responseMimeType: "application/json",
         responseJsonSchema: CLASSIFICATION_JSON_SCHEMA,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
     });
     return parseClassification(textOf(response), input.courseSlugs);
@@ -60,6 +62,7 @@ export class GeminiLanguageModel implements LanguageModel {
       config: {
         systemInstruction: summary ? `${input.system}\n\n${summary}` : input.system,
         maxOutputTokens: 4096,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
     return {
@@ -75,7 +78,7 @@ export class GeminiLanguageModel implements LanguageModel {
     const response = await this.models.generateContent({
       model: this.options.model,
       contents: [{ role: "user", parts: [{ text: summarizerInput(input.previousSummary, input.history) }] }],
-      config: { systemInstruction: SUMMARIZER_SYSTEM },
+      config: { systemInstruction: SUMMARIZER_SYSTEM, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
     });
     return textOf(response);
   }

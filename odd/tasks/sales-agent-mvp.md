@@ -1,0 +1,51 @@
+# Feature: sales-agent-mvp
+
+Objective: Telegram sales agent + real-time operator dashboard with seamless handover (FISEI UTA Hackathon 2026).
+Branch: `feat/sales-agent-mvp` · Delivery: `exception-ok` (hackathon, 2-person team, no PR review loop; commits stay work-unit sized) · Test runner: Vitest.
+
+## Specs
+
+- S1 Telegram agent "debe perfilar prospectos, resolver requerimientos técnicos del pénsum de cursos, argumentar ante objeciones comerciales y canalizar la inscripción con tono empático y no robótico."
+- S2 Course knowledge comes from the scraped catalog (`data/cursos_fisei.csv`): name, status (`ABIERTO`/`CERRADO`), duration, link, image. Detail fields (pensum, schedule, price, modality, certificate) are filled when the detail scrape is available; the bot must never invent them.
+- S3 Seamless handover: "Al detectar frustración del cliente o recibir intervención directa del operador, la IA debe pausar su inferencia automáticamente. Los mensajes enviados por el administrador fluyen por Telegram bajo la misma identidad del bot."
+- S4 Thermometer: "Clasificación semántica del estado del prospecto (interesado, dudoso, frustrado o lead caliente) visible instantáneamente en las tarjetas de chat".
+- S5 Guardrails: "Defensa sólida contra intentos maliciosos de ingeniería de prompts orientados a obtener cursos gratuitos, forzar descuentos no autorizados o alterar las directrices del centro educativo."
+- S6 Dashboard: "Interfaz web en tiempo real que liste las interacciones activas concurrentes" with real-time updates "vía WebSockets o Server-Sent Events sin recarga manual de pantalla"; operator can take over, reply, and resume AI.
+- S7 From the briefing transcript: see "quiénes están ya a un paso de inscribirse" (hot leads view), "poder mandar información y cerrar la venta" (operator sends material), register "personas que se inscriban" (enrollments).
+- S8 Token/context management: compact structured prompt, sliding history window + rolling summary, cheap model for classification.
+- S9 Value-add (only after S1–S8): operator summary, analytics, voice transcription.
+- S10 Deliverable 3: clean repo, `.env.example`, deployment guide.
+
+Assumption: models `claude-sonnet-5-5` (replies) and `claude-haiku-5-5` (classifier/summary), configurable via env.
+
+## Tasks
+
+| ID | Specs | Route | Status | Commit |
+| --- | --- | --- | --- | --- |
+| T1 | S2, S10 | inline | done (detail scraper pending) | see L6 |
+| T2 | S1, S3, S4, S5, S8 | inline | todo | |
+| T3 | S1, S3, S4 | inline | todo | |
+| T4 | S6, S7 | inline | todo | |
+| T5 | S7 | inline | todo | |
+| T6 | S9 | inline | todo | |
+| T7 | S10 | inline | todo | |
+
+- T1 Scaffold Next.js + Vitest, Supabase schema/migrations, course seed from CSV, detail-scraper script.
+- T2 Core domain + `HandleIncomingMessage` use case with ports, mode/handover rules, guardrails, context builder (unit tests with fakes).
+- T3 Adapters (Claude, Supabase, Telegram) + webhook route.
+- T4 Dashboard: inbox, chat view, realtime, take over / reply / resume.
+- T5 Enrollments flow + hot-leads view + send material.
+- T6 Summary, analytics, voice.
+- T7 README deploy guide + `.env.example`.
+
+Route evidence: no writer trigger; units are sequential (dashboard depends on schema and core types).
+
+## Log
+
+- L1 (2026-10-29) User: "mi compañero ya realizo el scrpaer de la pagina en donde esta toda la informacion revisa esta en la carpeta el csv y xlsx y este es el codigo que uso. [...] con esto ya comienza a desarrollar usa las habilidades que tienes con gentle+IA"
+- L2 Earlier context: team of 2 people; plan in `docs/PLANNING.md`; transcript gaps (course status, certificate/hours FAQ, hot leads, send material, enrollments).
+- L3 Finding: scraper only reads the listing page (`course.php`), not detail pages `cursoN.php`; site resolves to private IP 172.21.123.71, reachable only from UTA network. Detail scrape must run on the teammate's machine.
+- L4 RDD: off (global). Native review not applicable.
+- L5 (2026-10-29) User: "inicaliza el proyecto por ahora voy a ver porquen no puedo ingresar ala pagina , tampoco puedo yo ingresar" → scope this turn limited to T1.
+- L6 T1 evidence: RED (module missing) → GREEN `pnpm test` 3/3; `tsc --noEmit` OK; `pnpm lint` OK; `pnpm build` OK; `pnpm seed` wrote 18 courses. `.env.example` blocked by agent permissions; env vars documented in README instead. Detail scraper not written yet (needs the site reachable). Note: CSV marks all 2026 courses `ABIERTO`, while the briefing said CCNA/Linux/Python are already running.
+- Next: T2 core domain + use case.

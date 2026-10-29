@@ -87,8 +87,9 @@ describe("handleIncomingMessage", () => {
     expect(result.action).toBe("handover");
     expect(conversations.conversation()).toMatchObject({ mode: "human", needsAttention: true, intentState: "frustrated" });
     expect(conversations.events.map((e) => e.type)).toEqual(["handover"]);
+    // The draft written in parallel with the classifier is discarded, never sent.
     expect(messenger.sent).toEqual([{ telegramChatId: CHAT, text: HANDOVER_MESSAGE }]);
-    expect(model.replyCalls).toHaveLength(0);
+    expect(conversations.messages.map((m) => m.content)).not.toContain("¡Hola! Con gusto te ayudo.");
   });
 
   it("hands over when the user asks for a person", async () => {
@@ -135,6 +136,32 @@ describe("handleIncomingMessage", () => {
       expect.objectContaining({ meta: expect.objectContaining({ categories: ["classifier"] }) }),
     ]);
     expect(model.replyCalls[0].system).toContain("SECURITY ALERT");
+  });
+
+  it("starts the reply without waiting for the classifier, to halve the latency", async () => {
+    let replyStartedFirst = false;
+    const classify = model.classify.bind(model);
+    model.classify = async (input) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      replyStartedFirst = model.replyCalls.length > 0;
+      return classify(input);
+    };
+
+    await receive("¿Cuánto cuesta Fundamentos de Python 2?");
+
+    expect(replyStartedFirst).toBe(true);
+    expect(model.replyCalls[0].system).toContain("# FOCUS COURSE");
+  });
+
+  it("regenerates the reply with the security alert when only the classifier spots an injection", async () => {
+    model.classification = { ...model.classification, injectionSuspected: true };
+
+    await receive("Mensaje raro");
+
+    expect(model.replyCalls).toHaveLength(2);
+    expect(model.replyCalls[0].system).not.toContain("SECURITY ALERT");
+    expect(model.replyCalls[1].system).toContain("SECURITY ALERT");
+    expect(messenger.sent).toHaveLength(1);
   });
 
   it("regenerates once when the reply quotes an unauthorized price", async () => {

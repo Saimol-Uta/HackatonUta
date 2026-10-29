@@ -13,6 +13,7 @@ import type {
   Messenger,
 } from "../ports";
 import { courseLifecycle } from "../catalog/course-lifecycle";
+import { matchCourseByText } from "../catalog/match-course";
 import { buildSystemPrompt, courseStateLabel } from "./build-system-prompt";
 
 // User-facing copy is Spanish: the bot talks to Spanish-speaking prospects.
@@ -44,6 +45,10 @@ function resolveCourse(courses: Course[], slug: string | null, today: string): C
   );
   return active ?? picked;
 }
+
+type DraftOutcome =
+  | { ok: true; draft: Awaited<ReturnType<LanguageModel["reply"]>>; check: ReturnType<typeof checkReply> }
+  | { ok: false; error: unknown };
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -151,6 +156,37 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
     ]);
     const history = toTurns(recent);
 
+    const rules = detectInjection(incoming.text);
+    const textCourse = matchCourseByText(courses, incoming.text, today);
+    const policy = replyPolicy(courses, promotions.map((p) => p.discountPct));
+    const summary = conversation.summary;
+    const promptFor = (focusCourse: Course | null, injectionSuspected: boolean) =>
+      buildSystemPrompt({ courses, promotions, today, focusCourse, injectionSuspected });
+
+    /** Drafts a reply and checks it against the pricing policy, regenerating once. Never rejects. */
+    async function draftReply(system: string): Promise<DraftOutcome> {
+      try {
+        let draft = await model.reply({ system, summary, history });
+        let check = checkReply(draft.text, policy);
+        if (!check.ok) {
+          const retrySystem = `${system}\n\n# PREVIOUS DRAFT REJECTED\nIt broke the pricing rules (${check.violations.join(", ")}). Answer again using only catalog prices and active promotions.`;
+          draft = await model.reply({ system: retrySystem, summary, history });
+          check = checkReply(draft.text, policy);
+        }
+        return { ok: true, draft, check };
+      } catch (error) {
+        return { ok: false, error };
+      }
+    }
+
+    // The reply and the classifier run in parallel: both are slow model calls, and the reply only
+    // needs the course (found in the text) and the rule-based injection check. The classifier's
+    // verdict still decides below whether the draft is sent, dropped (handover) or regenerated.
+    const earlyFocus = textCourse ?? courses.find((c) => c.id === conversation.interestedCourseId) ?? null;
+    // No draft at all while an operator already owns the chat.
+    const replying: Promise<DraftOutcome> | null =
+      conversation.mode === "human" ? null : draftReply(promptFor(earlyFocus, rules.suspected));
+
     // Thermometer: classify every message, even while a human owns the chat.
     // A classifier outage must not silence the bot: fall back to a neutral reading.
     const classification = await model
@@ -159,8 +195,7 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
         courses: courses.map((c) => ({ slug: c.slug, name: c.name, state: courseStateLabel(c, today) })),
       })
       .catch(() => NEUTRAL_CLASSIFICATION);
-    const rules = detectInjection(incoming.text);
-    const mentioned = resolveCourse(courses, classification.courseSlug, today);
+    const mentioned = resolveCourse(courses, classification.courseSlug, today) ?? textCourse;
 
     await conversations.update(conversation.id, {
       intentState: classification.intentState,
@@ -183,24 +218,13 @@ export function handleIncomingMessage(deps: HandleIncomingMessageDeps) {
     if (classification.intentState === "frustrated") return handOver(conversation, "frustrated");
     if (classification.wantsHuman) return handOver(conversation, "wants_human");
 
-    const focusCourse = mentioned ?? courses.find((c) => c.id === conversation.interestedCourseId) ?? null;
-    const system = buildSystemPrompt({ courses, promotions, today, focusCourse, injectionSuspected });
-    const policy = replyPolicy(courses, promotions.map((p) => p.discountPct));
-    const summary = conversation.summary;
-
-    let draft: Awaited<ReturnType<LanguageModel["reply"]>>;
-    let check: ReturnType<typeof checkReply>;
-    try {
-      draft = await model.reply({ system, summary, history });
-      check = checkReply(draft.text, policy);
-      if (!check.ok) {
-        const retrySystem = `${system}\n\n# PREVIOUS DRAFT REJECTED\nIt broke the pricing rules (${check.violations.join(", ")}). Answer again using only catalog prices and active promotions.`;
-        draft = await model.reply({ system: retrySystem, summary, history });
-        check = checkReply(draft.text, policy);
-      }
-    } catch (error) {
-      return apologize(conversation, error);
+    // The early draft lacked the security alert (or never started): write it with the right prompt.
+    let outcome = replying ? await replying : await draftReply(promptFor(mentioned ?? earlyFocus, injectionSuspected));
+    if (replying && injectionSuspected && !rules.suspected) {
+      outcome = await draftReply(promptFor(mentioned ?? earlyFocus, true));
     }
+    if (!outcome.ok) return apologize(conversation, outcome.error);
+    const { draft, check } = outcome;
     const text = check.ok ? draft.text : SAFE_FALLBACK_MESSAGE;
 
     // An operator may have taken over while the model was thinking: their word wins.

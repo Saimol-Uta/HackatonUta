@@ -18,13 +18,21 @@ const api = (method: string, body: object) =>
     body: JSON.stringify(body),
   }).then((r) => r.json() as Promise<{ ok: boolean; result: { update_id: number }[]; description?: string }>);
 
-await api("deleteWebhook", { drop_pending_updates: false });
+// Network drops (e.g. switching Wi-Fi) should not kill the loop: retry until Telegram answers.
+for (;;) {
+  const removed = await api("deleteWebhook", { drop_pending_updates: false }).catch((error: Error) => {
+    console.error(`Telegram unreachable (${error.cause ?? error.message}), retrying in 5 s...`);
+    return null;
+  });
+  if (removed?.ok) break;
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+}
 console.log(`Polling Telegram and forwarding to ${localUrl}/api/telegram/webhook (Ctrl+C to stop)`);
 
 let offset = 0;
 for (;;) {
-  const updates = await api("getUpdates", { offset, timeout: 30, allowed_updates: ["message"] }).catch((error) => {
-    console.error("getUpdates failed:", error);
+  const updates = await api("getUpdates", { offset, timeout: 30, allowed_updates: ["message"] }).catch((error: Error) => {
+    console.error(`getUpdates failed (${error.cause ?? error.message}), retrying...`);
     return null;
   });
   if (!updates?.ok) {

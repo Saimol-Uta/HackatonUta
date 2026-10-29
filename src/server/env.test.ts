@@ -43,4 +43,8 @@ describe("parseEnv", () => {
       "TELEGRAM_WEBHOOK_SECRET",
     );
   });
+
+  it("treats a fallback equal to the primary as no fallback", () => {
+    expect(parseEnv({ ...BASE, GEMINI_API_KEY: "g", LLM_PRIMARY: "gemini", LLM_FALLBACK: "gemini" }).LLM_FALLBACK).toBe("none");
+  });
 });

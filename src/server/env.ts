@@ -25,9 +25,12 @@ const SCHEMA = z
   .transform((env) => ({
     ...env,
     // Without an explicit choice, the other provider backs up the primary when its key is present.
+    // A fallback equal to the primary would only retry the same provider.
     LLM_FALLBACK:
-      env.LLM_FALLBACK ??
-      (env.LLM_PRIMARY === "claude" ? (env.GEMINI_API_KEY ? "gemini" : "none") : env.ANTHROPIC_API_KEY ? "claude" : "none"),
+      env.LLM_FALLBACK === env.LLM_PRIMARY
+        ? ("none" as const)
+        : (env.LLM_FALLBACK ??
+          (env.LLM_PRIMARY === "claude" ? (env.GEMINI_API_KEY ? "gemini" : "none") : env.ANTHROPIC_API_KEY ? "claude" : "none")),
   }))
   .superRefine((env, ctx) => {
     const keyFor = { claude: "ANTHROPIC_API_KEY", gemini: "GEMINI_API_KEY" } as const;

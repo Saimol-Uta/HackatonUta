@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "seed": "node scripts/build-course-seed.ts",
-    "telegram:webhook": "node --env-file=.env.local scripts/set-telegram-webhook.ts"
+    "telegram:webhook": "node --env-file=.env.local scripts/set-telegram-webhook.ts",
+    "smoke": "vitest run --config vitest.smoke.config.ts --reporter=verbose"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
